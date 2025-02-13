@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"backend/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -84,4 +85,4 @@ func (h *EventHandler) Delete(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Event deleted"})
-} 
+}

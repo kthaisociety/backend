@@ -1,12 +1,12 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
-    image: postgres:75-alpine
+    image: postgres:17-alpine
     environment:
-      POSTGRES_DB: kthais_db
-      POSTGRES_USER: kthais_user
-      POSTGRES_PASSWORD: development_password
+      POSTGRES_DB: kthais
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"backend/internal/config"
 	"backend/internal/handlers"
 	"backend/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -19,7 +21,8 @@ func main() {
 	}
 
 	// Initialize DB
-	dsn := "host=localhost user=postgres password=postgres dbname=myapp port=5432 sslmode=disable"
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
+		cfg.Database.Host, cfg.Database.User, cfg.Database.Password, cfg.Database.DBName, cfg.Database.Port, cfg.Database.SSLMode)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
@@ -70,4 +73,4 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 	for _, h := range handlers {
 		h.Register(api)
 	}
-} 
+}

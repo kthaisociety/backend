@@ -1,5 +1,9 @@
 package config
 
+import (
+	"os"
+)
+
 type Config struct {
 	Database struct {
 		Host     string
@@ -15,16 +19,21 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	// In a real application, you would load this from environment variables
-	// or a configuration file
 	cfg := &Config{}
-	cfg.Database.Host = "localhost"
-	cfg.Database.Port = "5432"
-	cfg.Database.User = "postgres"
-	cfg.Database.Password = "postgres"
-	cfg.Database.DBName = "myapp"
-	cfg.Database.SSLMode = "disable"
-	cfg.Server.Port = "8080"
+	cfg.Database.Host = getEnv("DB_HOST", "localhost")
+	cfg.Database.Port = getEnv("DB_PORT", "5432")
+	cfg.Database.User = getEnv("DB_USER", "postgres")
+	cfg.Database.Password = getEnv("DB_PASSWORD", "password")
+	cfg.Database.DBName = getEnv("DB_NAME", "kthais")
+	cfg.Database.SSLMode = getEnv("DB_SSLMODE", "disable")
+	cfg.Server.Port = getEnv("SERVER_PORT", "8080")
 
 	return cfg, nil
+}
+
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
 }
