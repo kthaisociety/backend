@@ -2,6 +2,19 @@
 
 Next-generation backend for KTH AI Society website.
 
+## Requirements
+
+- Go 1.24.x
+- Docker
+
+## Setup
+
+Use Go to run the program.
+
+```bash
+go run cmd/api/main.go
+```
+
 ## Git Workflow
 
 This project adhers to [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages. This is to ensure that the project is easily maintainable and that the commit history is clean and easy to understand.
