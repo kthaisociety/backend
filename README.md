@@ -9,6 +9,12 @@ Next-generation backend for KTH AI Society website.
 
 ## Setup
 
+Use Docker compose to run the PostgreSQL database locally.
+
+```bash
+docker compose up -d
+```
+
 Use Go to run the program.
 
 ```bash
