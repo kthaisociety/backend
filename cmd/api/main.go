@@ -115,7 +115,7 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Register all handlers (rename local variable to avoid shadowing)
+	// Register all handlers
 	allHandlers := []handlers.Handler{
 		handlers.NewEventHandler(db),
 		auth.NewAuthHandler(db),
@@ -128,6 +128,6 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 	// Protected routes
 	protected := api.Group("/protected")
 	protected.Use(middleware.AuthRequired())
-	protectedHandler := handlers.NewProtectedHandler(db)  // Use the constructor from package 'handlers'
+	protectedHandler := handlers.NewProtectedHandler(db)
 	protectedHandler.Register(protected)
 }
