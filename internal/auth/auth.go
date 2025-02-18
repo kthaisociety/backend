@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 
 	"backend/internal/models"
@@ -60,6 +61,7 @@ func (h *AuthHandler) Register(r *gin.RouterGroup) {
 		auth.POST("/login", h.LoginUser)
 		auth.GET("/logout", h.Logout)
 		auth.GET("/status", h.Status)
+		auth.GET("/user", h.GetUser)
 	}
 }
 
@@ -108,22 +110,24 @@ func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "OAuth is not configured"})
 		return
 	}
+
 	provider, err := goth.GetProvider("google")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get provider"})
 		return
 	}
 
-	state := "random-string" // In production, use a proper state management
-	session, err := provider.BeginAuth(state)
+	// Get the auth URL
+	state := "random-string" // In production, use a secure random string
+	authURL, err := provider.BeginAuth(state)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin auth"})
 		return
 	}
 
-	url, err := session.GetAuthURL()
+	url, err := authURL.GetAuthURL()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get auth url"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get auth URL"})
 		return
 	}
 
@@ -132,107 +136,128 @@ func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 
 func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	if !h.enabled {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "OAuth is not configured"})
+		redirectWithError(c, "OAuth is not configured")
 		return
 	}
 
 	provider, err := goth.GetProvider("google")
 	if err != nil {
 		log.Printf("Failed to get provider: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get provider"})
+		redirectWithError(c, "Authentication failed")
 		return
 	}
-
-	// Add logging for debugging
-	log.Printf("Processing callback with params: %+v", c.Request.URL.Query())
 
 	params := c.Request.URL.Query()
 	state := params.Get("state")
 	gothSession, err := provider.BeginAuth(state)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin auth"})
+		log.Printf("Failed to begin auth: %v", err)
+		redirectWithError(c, "Authentication failed")
 		return
 	}
 
 	_, err = gothSession.Authorize(provider, params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to authorize: %v", err)})
+		log.Printf("Failed to authorize: %v", err)
+		redirectWithError(c, fmt.Sprintf("Failed to authorize: %v", err))
 		return
 	}
 
 	gothUser, err := provider.FetchUser(gothSession)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user"})
+		log.Printf("Failed to fetch user: %v", err)
+		redirectWithError(c, "Failed to fetch user data")
+		return
+	}
+
+	log.Printf("Got user from Google: %+v", gothUser)
+
+	// Start database transaction
+	tx := h.db.Begin()
+	if tx.Error != nil {
+		log.Printf("Failed to begin transaction: %v", tx.Error)
+		redirectWithError(c, "Internal server error")
 		return
 	}
 
 	// Check if user exists
 	var user models.User
-	result := h.db.Where("email = ?", gothUser.Email).First(&user)
+	result := tx.Where("email = ?", gothUser.Email).First(&user)
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new user
 		user = models.User{
 			Email:    gothUser.Email,
 			Provider: "google",
 		}
-		if err := h.db.Create(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create user: %v", err)})
+		if err := tx.Create(&user).Error; err != nil {
+			log.Printf("Failed to create user: %v", err)
+			tx.Rollback()
+			redirectWithError(c, "Failed to create account")
 			return
 		}
 
-		// Create profile with enhanced Google data
+		// Create profile
 		profile := models.Profile{
-			UserID:      user.ID,
-			FirstName:   gothUser.FirstName,
-			LastName:    gothUser.LastName,
-			DisplayName: gothUser.Name,
-			Image:       gothUser.AvatarURL,
-			Website:     gothUser.Location,  // Google might provide location
-			Location:    gothUser.Location,
+			UserID:    user.ID,
+			FirstName: gothUser.FirstName,
+			LastName:  gothUser.LastName,
+			Image:     gothUser.AvatarURL,
 		}
 
-		// If we have additional data from Google, add it
-		if gothUser.Description != "" {
-			profile.Bio = gothUser.Description
-		}
-
-		if err := h.db.Create(&profile).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create profile: %v", err)})
+		if err := tx.Create(&profile).Error; err != nil {
+			log.Printf("Failed to create profile: %v", err)
+			tx.Rollback()
+			redirectWithError(c, "Failed to create profile")
 			return
 		}
 	} else if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Database error: %v", result.Error)})
+		log.Printf("Database error: %v", result.Error)
+		tx.Rollback()
+		redirectWithError(c, "Database error")
 		return
-	} else {
-		// User exists, update their profile with any new information
-		var profile models.Profile
-		if err := h.db.Where("user_id = ?", user.ID).First(&profile).Error; err == nil {
-			// Update profile with any new information from Google
-			profile.FirstName = gothUser.FirstName
-			profile.LastName = gothUser.LastName
-			profile.DisplayName = gothUser.Name
-			profile.Image = gothUser.AvatarURL
-			
-			if err := h.db.Save(&profile).Error; err != nil {
-				log.Printf("Failed to update profile: %v", err)
-			}
-		}
 	}
 
-	// Now use the cookie session
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("Failed to commit transaction: %v", err)
+		redirectWithError(c, "Failed to save changes")
+		return
+	}
+
+	// Set session
 	session := sessions.Default(c)
+	session.Clear() // Clear any existing session
 	session.Set("user_id", user.ID)
 	session.Set("email", user.Email)
 	if err := session.Save(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save session: %v", err)})
+		log.Printf("Failed to save session: %v", err)
+		redirectWithError(c, "Failed to create session")
 		return
 	}
 
-	// Redirect to frontend or return session info
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Successfully authenticated",
-		"user": user,
-	})
+	// Get frontend URL from environment
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+
+	// Redirect to frontend dashboard
+	dashboardURL := fmt.Sprintf("%s/dashboard", frontendURL)
+	log.Printf("Redirecting to: %s", dashboardURL)
+	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
+}
+
+// Helper function to redirect with error
+func redirectWithError(c *gin.Context, message string) {
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+
+	// URL encode the error message
+	encodedError := url.QueryEscape(message)
+	redirectURL := fmt.Sprintf("%s/auth/login?error=%s", frontendURL, encodedError)
+	
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
@@ -376,6 +401,54 @@ func (h *AuthHandler) Status(c *gin.Context) {
 		"user_id": userID,
 		"email": session.Get("email"),
 	})
+}
+
+func (h *AuthHandler) GetUser(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id")
+	if userID == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	// Use a flat struct and a raw query to avoid nested struct scan issues
+	type DBUser struct {
+		ID        uint   `json:"id"`
+		Email     string `json:"email"`
+		Provider  string `json:"provider"`
+		FirstName string `json:"firstName"`
+		LastName  string `json:"lastName"`
+		Image     string `json:"image"`
+	}
+
+	var dbUser DBUser
+	query := `
+		SELECT u.id, u.email, u.provider,
+			   p.first_name, p.last_name, p.image
+		FROM users u
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE u.id = ?`
+	if err := h.db.Raw(query, userID).Scan(&dbUser).Error; err != nil {
+		log.Printf("Failed to fetch user data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user data"})
+		return
+	}
+
+	// Build the response with a nested "profile" object
+	response := gin.H{
+		"user": gin.H{
+			"id":       dbUser.ID,
+			"email":    dbUser.Email,
+			"provider": dbUser.Provider,
+			"profile": gin.H{
+				"firstName": dbUser.FirstName,
+				"lastName":  dbUser.LastName,
+				"image":     dbUser.Image,
+			},
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func getWorkingDir() string {
