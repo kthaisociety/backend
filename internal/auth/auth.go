@@ -8,12 +8,18 @@ import (
 
 	"backend/internal/models"
 
+	"backend/internal/handlers"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/google"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
+
+// Add this line to ensure AuthHandler implements Handler interface
+var _ handlers.Handler = (*AuthHandler)(nil)
 
 func InitAuth() error {
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
@@ -41,7 +47,24 @@ type AuthHandler struct {
 	enabled bool
 }
 
-func NewAuthHandler(db *gorm.DB) *AuthHandler {
+// Update Register method to match the Handler interface
+func (h *AuthHandler) Register(r *gin.RouterGroup) {
+	auth := r.Group("/auth")
+	{
+		// OAuth routes
+		auth.GET("/google", h.BeginGoogleAuth)
+		auth.GET("/google/callback", h.GoogleCallback)
+		
+		// Credential auth routes
+		auth.POST("/register", h.RegisterUser)
+		auth.POST("/login", h.LoginUser)
+		auth.GET("/logout", h.Logout)
+		auth.GET("/status", h.Status)
+	}
+}
+
+// Update constructor to return Handler interface
+func NewAuthHandler(db *gorm.DB) handlers.Handler {
 	// Check if OAuth is configured
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
@@ -67,29 +90,17 @@ func maskString(s string) string {
 	return s[:4] + "..." + s[len(s)-4:]
 }
 
-func (h *AuthHandler) Register(r *gin.RouterGroup) {
-	auth := r.Group("/auth")
-	{
-		auth.GET("/google", h.BeginGoogleAuth)
-		auth.GET("/google/callback", h.GoogleCallback)
-		auth.GET("/status", func(c *gin.Context) {
-			session := sessions.Default(c)
-			userID := session.Get("user_id")
-			c.JSON(http.StatusOK, gin.H{
-				"enabled": h.enabled,
-				"authenticated": userID != nil,
-				"debug": gin.H{
-					"client_id":            maskString(os.Getenv("GOOGLE_CLIENT_ID")),
-					"client_secret":        maskString(os.Getenv("GOOGLE_CLIENT_SECRET")),
-					"client_id_exists":     os.Getenv("GOOGLE_CLIENT_ID") != "",
-					"client_secret_exists": os.Getenv("GOOGLE_CLIENT_SECRET") != "",
-					"working_dir":          getWorkingDir(),
-					"env_files":            findEnvFiles(),
-				},
-			})
-		})
-		auth.GET("/logout", h.Logout)
-	}
+// Add these structs for request/response handling
+type RegisterRequest struct {
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required,min=6"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
 }
 
 func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
@@ -229,6 +240,142 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	session.Clear()
 	session.Save()
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
+}
+
+func (h *AuthHandler) RegisterUser(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Check if user exists
+	var existingUser models.User
+	if err := h.db.Where("email = ?", req.Email).First(&existingUser).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+		// Continue with user creation if user not found
+	} else {
+		c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
+		return
+	}
+
+	// Create transaction
+	tx := h.db.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+		return
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		return
+	}
+
+	// Create user
+	hashedPasswordStr := string(hashedPassword)
+	user := models.User{
+		Email:    req.Email,
+		Password: &hashedPasswordStr,
+		Provider: "credentials",
+	}
+
+	if err := tx.Create(&user).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	// Create profile
+	profile := models.Profile{
+		UserID:    user.ID,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+	}
+
+	if err := tx.Create(&profile).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Set session
+	session := sessions.Default(c)
+	session.Set("user_id", user.ID)
+	session.Set("email", user.Email)
+	if err := session.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "User registered successfully",
+		"user": gin.H{
+			"id": user.ID,
+			"email": user.Email,
+			"profile": profile,
+		},
+	})
+}
+
+func (h *AuthHandler) LoginUser(c *gin.Context) {
+	var req LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Find user
+	var user models.User
+	if err := h.db.Where("email = ? AND provider = ?", req.Email, "credentials").First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	// Check password
+	if user.Password == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Account is linked to OAuth provider"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(req.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	// Set session
+	session := sessions.Default(c)
+	session.Set("user_id", user.ID)
+	session.Set("email", user.Email)
+	session.Save()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"user": user,
+	})
+}
+
+func (h *AuthHandler) Status(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id")
+	c.JSON(http.StatusOK, gin.H{
+		"enabled": h.enabled,
+		"authenticated": userID != nil,
+		"user_id": userID,
+		"email": session.Get("email"),
+	})
 }
 
 func getWorkingDir() string {
