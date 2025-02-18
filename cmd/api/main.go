@@ -3,17 +3,60 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
+	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/handlers"
+	"backend/internal/middleware"
 	"backend/internal/models"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func main() {
+	// Get working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Printf("Warning: Could not get working directory: %v", err)
+	} else {
+		log.Printf("Working directory: %s", wd)
+	}
+
+	// Try loading environment variables from multiple locations
+	envFiles := []string{
+		".env",
+		".env.local",
+		"../../.env",
+		"../../.env.local",
+	}
+
+	for _, file := range envFiles {
+		if err := godotenv.Load(file); err == nil {
+			log.Printf("Successfully loaded environment from: %s", file)
+			break
+		} else {
+			log.Printf("Could not load %s: %v", file, err)
+		}
+	}
+
+	// Explicitly set environment variables from .env.local if not already set
+	if os.Getenv("GOOGLE_CLIENT_ID") == "" {
+		os.Setenv("GOOGLE_CLIENT_ID", "1056806786097-gatubd3kl6c1e027n0tbi7u3au5o27u7.apps.googleusercontent.com")
+	}
+	if os.Getenv("GOOGLE_CLIENT_SECRET") == "" {
+		os.Setenv("GOOGLE_CLIENT_SECRET", "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")
+	}
+
+	// Print environment variables (masked)
+	log.Printf("GOOGLE_CLIENT_ID present: %v", os.Getenv("GOOGLE_CLIENT_ID") != "")
+	log.Printf("GOOGLE_CLIENT_SECRET present: %v", os.Getenv("GOOGLE_CLIENT_SECRET") != "")
+
 	// Load config
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -28,6 +71,11 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
+	// Drop existing tables to handle schema changes
+	if err := db.Migrator().DropTable(&models.User{}, &models.Profile{}); err != nil {
+		log.Printf("Warning: Failed to drop tables: %v", err)
+	}
+
 	// Auto migrate the schema
 	err = db.AutoMigrate(
 		&models.User{},
@@ -40,8 +88,17 @@ func main() {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
+	// Initialize auth
+	if err := auth.InitAuth(); err != nil {
+		log.Printf("Warning: OAuth initialization failed: %v", err)
+	}
+
 	// Initialize router
 	r := gin.Default()
+
+	// Setup session middleware
+	store := cookie.NewStore([]byte("secret"))  // In production, use a proper secret key
+	r.Use(sessions.Sessions("kthais_session", store))
 
 	// Initialize handlers
 	setupRoutes(r, db)
@@ -53,24 +110,24 @@ func main() {
 func setupRoutes(r *gin.Engine, db *gorm.DB) {
 	api := r.Group("/api/v1")
 
-	// Health check
+	// Public routes
 	api.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status": "ok",
-		})
+		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Register all handlers
-	handlers := []handlers.Handler{
+	// Register all handlers (rename local variable to avoid shadowing)
+	allHandlers := []handlers.Handler{
 		handlers.NewEventHandler(db),
-		// Add other handlers here as they are implemented
-		// handlers.NewUserHandler(db),
-		// handlers.NewProfileHandler(db),
-		// handlers.NewRegistrationHandler(db),
-		// handlers.NewTeamMemberHandler(db),
+		auth.NewAuthHandler(db),
 	}
 
-	for _, h := range handlers {
+	for _, h := range allHandlers {
 		h.Register(api)
 	}
+
+	// Protected routes
+	protected := api.Group("/protected")
+	protected.Use(middleware.AuthRequired())
+	protectedHandler := handlers.NewProtectedHandler(db)  // Use the constructor from package 'handlers'
+	protectedHandler.Register(protected)
 }
