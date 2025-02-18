@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"backend/internal/auth"
 	"backend/internal/config"
@@ -11,6 +12,7 @@ import (
 	"backend/internal/middleware"
 	"backend/internal/models"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -72,7 +74,7 @@ func main() {
 	}
 
 	// Drop existing tables to handle schema changes
-	if err := db.Migrator().DropTable(&models.User{}, &models.Profile{}); err != nil {
+	if err := db.Migrator().DropTable(&models.Profile{}, &models.User{}); err != nil {
 		log.Printf("Warning: Failed to drop tables: %v", err)
 	}
 
@@ -99,6 +101,16 @@ func main() {
 	// Setup session middleware
 	store := cookie.NewStore([]byte("secret"))  // In production, use a proper secret key
 	r.Use(sessions.Sessions("kthais_session", store))
+
+	// Add CORS middleware
+	config := cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // env variable
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+	r.Use(cors.New(config))
 
 	// Initialize handlers
 	setupRoutes(r, db)
