@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"backend/internal/models"
 
@@ -38,6 +39,7 @@ func InitAuth() error {
 			clientID,
 			clientSecret,
 			"http://localhost:8080/api/v1/auth/google/callback",
+			"email", "profile",
 		),
 	)
 	return nil
@@ -92,12 +94,12 @@ func maskString(s string) string {
 	return s[:4] + "..." + s[len(s)-4:]
 }
 
-// Add these structs for request/response handling
+// Update the RegisterRequest struct to match frontend fields
 type RegisterRequest struct {
 	Email     string `json:"email" binding:"required,email"`
 	Password  string `json:"password" binding:"required,min=6"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	FirstName string `json:"firstName" binding:"required"`
+	LastName  string `json:"lastName" binding:"required"`
 }
 
 type LoginRequest struct {
@@ -170,62 +172,75 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Got user from Google: %+v", gothUser)
+	log.Printf("Google User Data: %+v", gothUser)
+	log.Printf("Raw Data: %+v", gothUser.RawData)
 
-	// Start database transaction
-	tx := h.db.Begin()
-	if tx.Error != nil {
-		log.Printf("Failed to begin transaction: %v", tx.Error)
-		redirectWithError(c, "Internal server error")
-		return
+	// Extract name from RawData
+	var firstName, lastName string
+	if given, ok := gothUser.RawData["given_name"].(string); ok {
+		firstName = given
+	}
+	if family, ok := gothUser.RawData["family_name"].(string); ok {
+		lastName = family
+	}
+
+	// If given_name/family_name not found, try to parse from Name
+	if firstName == "" || lastName == "" && gothUser.Name != "" {
+		names := strings.Split(gothUser.Name, " ")
+		if len(names) >= 2 {
+			if firstName == "" {
+				firstName = names[0]
+			}
+			if lastName == "" {
+				lastName = strings.Join(names[1:], " ")
+			}
+		} else if len(names) == 1 {
+			if firstName == "" {
+				firstName = names[0]
+			}
+		}
 	}
 
 	// Check if user exists
 	var user models.User
-	result := tx.Where("email = ?", gothUser.Email).First(&user)
+	result := h.db.Where("email = ?", gothUser.Email).First(&user)
+	
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new user
 		user = models.User{
-			Email:    gothUser.Email,
-			Provider: "google",
-		}
-		if err := tx.Create(&user).Error; err != nil {
-			log.Printf("Failed to create user: %v", err)
-			tx.Rollback()
-			redirectWithError(c, "Failed to create account")
-			return
-		}
-
-		// Create profile
-		profile := models.Profile{
-			UserID:    user.ID,
-			FirstName: gothUser.FirstName,
-			LastName:  gothUser.LastName,
+			Email:     gothUser.Email,
+			Provider:  "google",
+			FirstName: firstName,
+			LastName:  lastName,
 			Image:     gothUser.AvatarURL,
 		}
 
-		if err := tx.Create(&profile).Error; err != nil {
-			log.Printf("Failed to create profile: %v", err)
-			tx.Rollback()
-			redirectWithError(c, "Failed to create profile")
+		if err := h.db.Create(&user).Error; err != nil {
+			log.Printf("Failed to create user: %v", err)
+			redirectWithError(c, "Failed to create account")
 			return
 		}
 	} else if result.Error != nil {
 		log.Printf("Database error: %v", result.Error)
-		tx.Rollback()
 		redirectWithError(c, "Database error")
 		return
-	}
+	} else {
+		// Update existing user
+		user.Provider = "google"
+		user.FirstName = firstName
+		user.LastName = lastName
+		user.Image = gothUser.AvatarURL
 
-	if err := tx.Commit().Error; err != nil {
-		log.Printf("Failed to commit transaction: %v", err)
-		redirectWithError(c, "Failed to save changes")
-		return
+		if err := h.db.Save(&user).Error; err != nil {
+			log.Printf("Failed to update user: %v", err)
+			redirectWithError(c, "Failed to update account")
+			return
+		}
 	}
 
 	// Set session
 	session := sessions.Default(c)
-	session.Clear() // Clear any existing session
+	session.Clear()
 	session.Set("user_id", user.ID)
 	session.Set("email", user.Email)
 	if err := session.Save(); err != nil {
@@ -234,15 +249,12 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Get frontend URL from environment
+	// Redirect to frontend
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000"
 	}
-
-	// Redirect to frontend dashboard
 	dashboardURL := fmt.Sprintf("%s/dashboard", frontendURL)
-	log.Printf("Redirecting to: %s", dashboardURL)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 
@@ -274,65 +286,23 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// Check if user exists
-	var existingUser models.User
-	if err := h.db.Where("email = ?", req.Email).First(&existingUser).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-			return
-		}
-		// Continue with user creation if user not found
-	} else {
-		c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
-		return
-	}
-
-	// Create transaction
-	tx := h.db.Begin()
-	if tx.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
-		return
-	}
-
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
 
-	// Create user
 	hashedPasswordStr := string(hashedPassword)
 	user := models.User{
-		Email:    req.Email,
-		Password: &hashedPasswordStr,
-		Provider: "credentials",
-	}
-
-	if err := tx.Create(&user).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		return
-	}
-
-	// Create profile
-	profile := models.Profile{
-		UserID:    user.ID,
+		Email:     req.Email,
+		Password:  &hashedPasswordStr,
+		Provider:  "credentials",
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 	}
 
-	if err := tx.Create(&profile).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
-		return
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+	if err := h.db.Create(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
 
@@ -347,11 +317,7 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User registered successfully",
-		"user": gin.H{
-			"id": user.ID,
-			"email": user.Email,
-			"profile": profile,
-		},
+		"user": user,
 	})
 }
 
@@ -388,7 +354,14 @@ func (h *AuthHandler) LoginUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
-		"user": user,
+		"user": gin.H{
+			"id":       user.ID,
+			"email":    user.Email,
+			"provider": user.Provider,
+			"firstName": user.FirstName,
+			"lastName":  user.LastName,
+			"image":     user.Image,
+		},
 	})
 }
 
@@ -411,40 +384,22 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	// Use a flat struct and a raw query to avoid nested struct scan issues
-	type DBUser struct {
-		ID        uint   `json:"id"`
-		Email     string `json:"email"`
-		Provider  string `json:"provider"`
-		FirstName string `json:"firstName"`
-		LastName  string `json:"lastName"`
-		Image     string `json:"image"`
-	}
-
-	var dbUser DBUser
-	query := `
-		SELECT u.id, u.email, u.provider,
-			   p.first_name, p.last_name, p.image
-		FROM users u
-		LEFT JOIN profiles p ON p.user_id = u.id
-		WHERE u.id = ?`
-	if err := h.db.Raw(query, userID).Scan(&dbUser).Error; err != nil {
+	var user models.User
+	if err := h.db.First(&user, userID).Error; err != nil {
 		log.Printf("Failed to fetch user data: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user data"})
 		return
 	}
-
-	// Build the response with a nested "profile" object
+	fmt.Println(user)
+	// Transform response to maintain API compatibility
 	response := gin.H{
 		"user": gin.H{
-			"id":       dbUser.ID,
-			"email":    dbUser.Email,
-			"provider": dbUser.Provider,
-			"profile": gin.H{
-				"firstName": dbUser.FirstName,
-				"lastName":  dbUser.LastName,
-				"image":     dbUser.Image,
-			},
+			"id":       user.ID,
+			"email":    user.Email,
+			"provider": user.Provider,
+			"firstName": user.FirstName,
+			"lastName":  user.LastName,
+			"image":     user.Image,
 		},
 	}
 

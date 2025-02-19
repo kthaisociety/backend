@@ -19,47 +19,74 @@ type ProtectedHandler struct {
 }
 
 // Export the constructor
-func NewProtectedHandler(db *gorm.DB) *ProtectedHandler {  // Return concrete type
+func NewProtectedHandler(db *gorm.DB) Handler {
 	return &ProtectedHandler{DB: db}
 }
 
 func (h *ProtectedHandler) Register(r *gin.RouterGroup) {
-	protected := r.Group("")
-	{
-		protected.GET("", h.Protected)
-		protected.GET("/profile", h.Profile)
-	}
+	r.GET("/me", h.GetMe)
+	r.PUT("/me", h.UpdateMe)
 }
 
-func (h *ProtectedHandler) Protected(c *gin.Context) {
+func (h *ProtectedHandler) GetMe(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id")
-	email := session.Get("email")
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "You have access to protected route",
-		"user_id": userID,
-		"email":   email,
-	})
-}
-
-func (h *ProtectedHandler) Profile(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id")
-
-	var user struct {
-		Email   string         `json:"email"`
-		Profile models.Profile `json:"profile"`
-	}
-
-	if err := h.DB.Table("users").
-		Select("users.email, profiles.*").
-		Joins("LEFT JOIN profiles ON profiles.user_id = users.id").
-		Where("users.id = ?", userID).
-		First(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profile"})
+	if userID == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	var user models.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": user,
+	})
+}
+
+func (h *ProtectedHandler) UpdateMe(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id")
+	if userID == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+
+	var updateData struct {
+		Email     string `json:"email"`
+		FirstName string `json:"firstName"`
+		LastName  string `json:"lastName"`
+		Image     string `json:"image"`
+	}
+
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Find the user
+	var user models.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user"})
+		return
+	}
+
+	// Update user fields
+	user.Email = updateData.Email
+	user.FirstName = updateData.FirstName
+	user.LastName = updateData.LastName
+	user.Image = updateData.Image
+
+	if err := h.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User updated successfully",
+		"user":    user,
+	})
 } 
