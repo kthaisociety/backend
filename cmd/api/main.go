@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -20,6 +23,49 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+func generateSecureKey() ([]byte, error) {
+	key := make([]byte, 32) // 256 bits
+	_, err := rand.Read(key)
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+func setupStore() (sessions.Store, error) {
+	// Generate a secure key or load from environment
+	key := os.Getenv("SESSION_KEY")
+	var sessionKey []byte
+	
+	if key == "" {
+		var err error
+		sessionKey, err = generateSecureKey()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate session key: %v", err)
+		}
+		// Optionally log the key for first-time setup
+		log.Printf("Generated new session key: %s", base64.StdEncoding.EncodeToString(sessionKey))
+	} else {
+		var err error
+		sessionKey, err = base64.StdEncoding.DecodeString(key)
+		if err != nil {
+			return nil, fmt.Errorf("invalid session key in environment: %v", err)
+		}
+	}
+
+	// Create store with secure settings
+	store := cookie.NewStore(sessionKey)
+	store.Options(sessions.Options{
+		Path:     "/",              // Cookie is valid for entire site
+		MaxAge:   86400 * 7,        // 7 days
+		HttpOnly: true,             // Prevent JavaScript access
+		Secure:   true,             // Require HTTPS
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	return store, nil
+}
 
 func main() {
 	// Get working directory
@@ -97,8 +143,13 @@ func main() {
 	// Initialize router
 	r := gin.Default()
 
-	// Setup session middleware
-	store := cookie.NewStore([]byte("secret"))  // In production, use a proper secret key
+	// Initialize session store
+	store, err := setupStore()
+	if err != nil {
+		log.Fatal("Failed to setup session store:", err)
+	}
+
+	// Use the store
 	r.Use(sessions.Sessions("kthais_session", store))
 
 	// Add CORS middleware

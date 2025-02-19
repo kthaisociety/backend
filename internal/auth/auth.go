@@ -23,6 +23,12 @@ import (
 // Add this line to ensure AuthHandler implements Handler interface
 var _ handlers.Handler = (*AuthHandler)(nil)
 
+// Add these constants at the top of the file
+const (
+	bcryptCost = 12 // Higher than default (10), but not too slow
+	sessionName = "kthais_session"
+)
+
 func InitAuth() error {
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
@@ -286,9 +292,11 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// Use stronger hashing
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		log.Printf("Failed to hash password: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
 		return
 	}
 
