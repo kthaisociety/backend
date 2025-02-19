@@ -11,6 +11,7 @@ import (
 	"backend/internal/models"
 
 	"backend/internal/handlers"
+	"backend/internal/middleware"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -45,9 +46,24 @@ func InitAuth() error {
 			clientID,
 			clientSecret,
 			"http://localhost:8080/api/v1/auth/google/callback",
-			"email", "profile",
+			"email",             // Minimal scope
+			"profile",           // For user info
+			"openid",           // Enable OpenID Connect
+			"https://www.googleapis.com/auth/userinfo.profile", // Explicit profile access
 		),
 	)
+
+	// Configure provider options
+	provider, err := goth.GetProvider("google")
+	if err != nil {
+		return fmt.Errorf("failed to get google provider: %v", err)
+	}
+
+	if googleProvider, ok := provider.(*google.Provider); ok {
+		googleProvider.SetHostedDomain("") // Optional: restrict to specific domain
+		googleProvider.SetPrompt("select_account consent") // Force consent screen
+	}
+
 	return nil
 }
 
@@ -60,9 +76,13 @@ type AuthHandler struct {
 func (h *AuthHandler) Register(r *gin.RouterGroup) {
 	auth := r.Group("/auth")
 	{
-		// OAuth routes
-		auth.GET("/google", h.BeginGoogleAuth)
-		auth.GET("/google/callback", h.GoogleCallback)
+		// Apply rate limiting to OAuth routes
+		oauth := auth.Group("/")
+		oauth.Use(middleware.RateLimit())
+		{
+			oauth.GET("/google", h.BeginGoogleAuth)
+			oauth.GET("/google/callback", h.GoogleCallback)
+		}
 		
 		// Credential auth routes
 		auth.POST("/register", h.RegisterUser)
@@ -244,23 +264,25 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		}
 	}
 
-	// Set session
+	// Set session with explicit domain
 	session := sessions.Default(c)
 	session.Clear()
 	session.Set("user_id", user.ID)
 	session.Set("email", user.Email)
+	session.Set("authenticated", true) // Add explicit authentication flag
+	
 	if err := session.Save(); err != nil {
 		log.Printf("Failed to save session: %v", err)
 		redirectWithError(c, "Failed to create session")
 		return
 	}
 
-	// Redirect to frontend
+	// Redirect to frontend with explicit success parameter
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000"
 	}
-	dashboardURL := fmt.Sprintf("%s/dashboard", frontendURL)
+	dashboardURL := fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 
@@ -376,9 +398,13 @@ func (h *AuthHandler) LoginUser(c *gin.Context) {
 func (h *AuthHandler) Status(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id")
+	authenticated := session.Get("authenticated")
+
+	log.Printf("Session check - UserID: %v, Authenticated: %v", userID, authenticated)
+
 	c.JSON(http.StatusOK, gin.H{
 		"enabled": h.enabled,
-		"authenticated": userID != nil,
+		"authenticated": authenticated != nil && authenticated.(bool),
 		"user_id": userID,
 		"email": session.Get("email"),
 	})

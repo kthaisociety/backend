@@ -143,24 +143,33 @@ func main() {
 	// Initialize router
 	r := gin.Default()
 
-	// Initialize session store
+	// Add CORS middleware with more permissive settings for development
+	corsConfig := cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cookie"},
+		ExposeHeaders:    []string{"Set-Cookie"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+	r.Use(cors.New(corsConfig))
+
+	// Setup session store with development-friendly settings
 	store, err := setupStore()
 	if err != nil {
 		log.Fatal("Failed to setup session store:", err)
 	}
+	
+	// Modify cookie settings for development
+	store.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 7,
+		HttpOnly: true,
+		Secure:   false, // Set to false for development
+		SameSite: http.SameSiteLaxMode, // Use Lax for development
+	})
 
-	// Use the store
 	r.Use(sessions.Sessions("kthais_session", store))
-
-	// Add CORS middleware
-	config := cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"}, // env variable
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}
-	r.Use(cors.New(config))
 
 	// Initialize handlers
 	setupRoutes(r, db)
