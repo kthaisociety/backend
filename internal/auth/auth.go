@@ -10,6 +10,7 @@ import (
 
 	"backend/internal/models"
 
+	"backend/internal/config"
 	"backend/internal/handlers"
 	"backend/internal/middleware"
 
@@ -40,12 +41,16 @@ func InitAuth() error {
 	if clientID == "" || clientSecret == "" {
 		return fmt.Errorf("google oauth credentials not configured")
 	}
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
 
 	goth.UseProviders(
 		google.New(
 			clientID,
 			clientSecret,
-			"http://localhost:8080/api/v1/auth/google/callback",
+			cfg.BackendURL + "/api/v1/auth/google/callback",
 			"email",             // Minimal scope
 			"profile",           // For user info
 			"openid",           // Enable OpenID Connect
@@ -167,7 +172,11 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		redirectWithError(c, "OAuth is not configured")
 		return
 	}
-
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+	
 	provider, err := goth.GetProvider("google")
 	if err != nil {
 		log.Printf("Failed to get provider: %v", err)
@@ -278,20 +287,19 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	// Redirect to frontend with explicit success parameter
-	frontendURL := os.Getenv("FRONTEND_URL")
-	if frontendURL == "" {
-		frontendURL = "http://localhost:3000"
-	}
+	frontendURL := cfg.FrontendURL 
+	
 	dashboardURL := fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 
 // Helper function to redirect with error
 func redirectWithError(c *gin.Context, message string) {
-	frontendURL := os.Getenv("FRONTEND_URL")
-	if frontendURL == "" {
-		frontendURL = "http://localhost:3000"
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
+	frontendURL := cfg.FrontendURL 
 
 	// URL encode the error message
 	encodedError := url.QueryEscape(message)

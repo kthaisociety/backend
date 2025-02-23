@@ -21,6 +21,8 @@ type Config struct {
 		GoogleClientID     string
 		GoogleClientSecret string
 	}
+	FrontendURL string
+	BackendURL  string
 }
 
 func LoadConfig() (*Config, error) {
@@ -38,6 +40,11 @@ func LoadConfig() (*Config, error) {
 	cfg.Database.DBName = getEnv("DB_NAME", "kthais")
 	cfg.Database.SSLMode = getEnv("DB_SSLMODE", "disable")
 	cfg.Server.Port = getEnv("SERVER_PORT", "8080")
+
+	// Frontend and Backend URLs
+	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
+	cfg.BackendURL = getEnv("BACKEND_URL", "http://localhost:8080")
+
 	
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
