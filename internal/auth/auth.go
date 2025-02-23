@@ -24,7 +24,6 @@ import (
 // Add this line to ensure AuthHandler implements Handler interface
 var _ handlers.Handler = (*AuthHandler)(nil)
 
-
 func InitAuth() error {
 	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
@@ -44,10 +43,10 @@ func InitAuth() error {
 		google.New(
 			clientID,
 			clientSecret,
-			cfg.BackendURL + "/api/v1/auth/google/callback",
-			"email",             // Minimal scope
-			"profile",           // For user info
-			"openid",           // Enable OpenID Connect
+			cfg.BackendURL+"/api/v1/auth/google/callback",
+			"email",   // Minimal scope
+			"profile", // For user info
+			"openid",  // Enable OpenID Connect
 			"https://www.googleapis.com/auth/userinfo.profile", // Explicit profile access
 		),
 	)
@@ -59,7 +58,7 @@ func InitAuth() error {
 	}
 
 	if googleProvider, ok := provider.(*google.Provider); ok {
-		googleProvider.SetHostedDomain("") // Optional: restrict to specific domain
+		googleProvider.SetHostedDomain("")                 // Optional: restrict to specific domain
 		googleProvider.SetPrompt("select_account consent") // Force consent screen
 	}
 
@@ -81,7 +80,7 @@ func (h *AuthHandler) Register(r *gin.RouterGroup) {
 			oauth.GET("/google", h.BeginGoogleAuth)
 			oauth.GET("/google/callback", h.GoogleCallback)
 		}
-		
+
 		// Keep only these essential routes
 		auth.GET("/logout", h.Logout)
 		auth.GET("/status", h.Status)
@@ -95,8 +94,6 @@ func NewAuthHandler(db *gorm.DB) handlers.Handler {
 		db: db,
 	}
 }
-
-
 
 func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 	provider, err := goth.GetProvider("google")
@@ -127,7 +124,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	provider, err := goth.GetProvider("google")
 	if err != nil {
 		log.Printf("Failed to get provider: %v", err)
@@ -190,7 +187,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	// Check if user exists
 	var user models.User
 	result := h.db.Where("email = ?", gothUser.Email).First(&user)
-	
+
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new user
 		user = models.User{
@@ -265,7 +262,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	session.Set("user_id", user.ID)
 	session.Set("email", user.Email)
 	session.Set("authenticated", true)
-	
+
 	if err := session.Save(); err != nil {
 		log.Printf("Failed to save session: %v", err)
 		redirectWithError(c, "Failed to create session")
@@ -273,7 +270,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	// Redirect to frontend
-	frontendURL := cfg.FrontendURL 
+	frontendURL := cfg.FrontendURL
 	dashboardURL := fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
@@ -284,12 +281,12 @@ func redirectWithError(c *gin.Context, message string) {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-	frontendURL := cfg.FrontendURL 
+	frontendURL := cfg.FrontendURL
 
 	// URL encode the error message
 	encodedError := url.QueryEscape(message)
 	redirectURL := fmt.Sprintf("%s/auth/login?error=%s", frontendURL, encodedError)
-	
+
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
@@ -309,8 +306,8 @@ func (h *AuthHandler) Status(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"authenticated": authenticated != nil && authenticated.(bool),
-		"user_id": userID,
-		"email": session.Get("email"),
+		"user_id":       userID,
+		"email":         session.Get("email"),
 	})
 }
 
@@ -333,12 +330,12 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 	response := gin.H{
 		"user": gin.H{
 			"id":             userID,
-			"email":         profile.Email,
-			"firstName":     profile.FirstName,
-			"lastName":      profile.LastName,
-			"image":         profile.Image,
-			"university":    profile.University,
-			"programme":     profile.Programme,
+			"email":          profile.Email,
+			"firstName":      profile.FirstName,
+			"lastName":       profile.LastName,
+			"image":          profile.Image,
+			"university":     profile.University,
+			"programme":      profile.Programme,
 			"graduationYear": profile.GraduationYear,
 		},
 	}

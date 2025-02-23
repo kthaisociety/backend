@@ -39,19 +39,19 @@ func NewRedisRateLimiter(cfg *config.Config, maxRequests int, window time.Durati
 
 func (rl *RedisRateLimiter) Allow(ctx context.Context, key string) (bool, error) {
 	pipe := rl.client.Pipeline()
-	
+
 	now := time.Now().UnixNano()
 	windowStart := now - rl.window.Nanoseconds()
 
 	// Remove old requests
 	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprint(windowStart))
-	
+
 	// Add current request
 	pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: now})
-	
+
 	// Count requests in window
 	pipe.ZCard(ctx, key)
-	
+
 	// Set key expiration
 	pipe.Expire(ctx, key, rl.window)
 
@@ -62,7 +62,7 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, key string) (bool, error)
 
 	// Get count from third command (ZCard)
 	count := results[2].(*redis.IntCmd).Val()
-	
+
 	return count <= int64(rl.maxRequests), nil
 }
 
@@ -96,4 +96,4 @@ func RateLimit() gin.HandlerFunc {
 
 		c.Next()
 	}
-} 
+}

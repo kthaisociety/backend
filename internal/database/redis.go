@@ -16,7 +16,7 @@ var (
 
 func GetRedisClient(cfg *config.Config) (*redis.Client, error) {
 	var err error
-	
+
 	redisOnce.Do(func() {
 		redisClient = redis.NewClient(&redis.Options{
 			Addr: fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
@@ -24,4 +24,4 @@ func GetRedisClient(cfg *config.Config) (*redis.Client, error) {
 	})
 
 	return redisClient, err
-} 
+}

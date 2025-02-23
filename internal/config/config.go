@@ -24,7 +24,7 @@ type Config struct {
 	}
 	FrontendURL string
 	BackendURL  string
-	Redis struct {
+	Redis       struct {
 		Host string
 		Port string
 	}
@@ -32,11 +32,11 @@ type Config struct {
 
 func LoadConfig() (*Config, error) {
 	cfg := &Config{}
-	
+
 	// Add debug logging
 	host := getEnv("DB_HOST", "localhost")
 	fmt.Printf("Database Host: %s\n", host)
-	
+
 	// Database config
 	cfg.Database.Host = host
 	cfg.Database.Port = getEnv("DB_PORT", "5432")
@@ -54,7 +54,6 @@ func LoadConfig() (*Config, error) {
 	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
 	cfg.BackendURL = getEnv("BACKEND_URL", "http://localhost:8080")
 
-	
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
 	cfg.OAuth.GoogleClientSecret = getEnv("GOOGLE_CLIENT_SECRET", "")

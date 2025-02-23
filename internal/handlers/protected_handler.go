@@ -56,13 +56,13 @@ func (h *ProtectedHandler) UpdateMe(c *gin.Context) {
 	}
 
 	var updateData struct {
-		Email         string `json:"email"`
-		FirstName     string `json:"firstName"`
-		LastName      string `json:"lastName"`
-		Image         string `json:"image"`
-		University    string `json:"university"`
-		Programme     string `json:"programme"`
-		GraduationYear int   `json:"graduationYear"`
+		Email          string `json:"email"`
+		FirstName      string `json:"firstName"`
+		LastName       string `json:"lastName"`
+		Image          string `json:"image"`
+		University     string `json:"university"`
+		Programme      string `json:"programme"`
+		GraduationYear int    `json:"graduationYear"`
 	}
 
 	if err := c.ShouldBindJSON(&updateData); err != nil {
@@ -95,4 +95,4 @@ func (h *ProtectedHandler) UpdateMe(c *gin.Context) {
 		"message": "Profile updated successfully",
 		"user":    profile,
 	})
-} 
+}

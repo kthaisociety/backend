@@ -37,7 +37,7 @@ func setupStore() (sessions.Store, error) {
 	// Generate a secure key or load from environment
 	key := os.Getenv("SESSION_KEY")
 	var sessionKey []byte
-	
+
 	if key == "" {
 		var err error
 		sessionKey, err = generateSecureKey()
@@ -57,10 +57,10 @@ func setupStore() (sessions.Store, error) {
 	// Create store with secure settings
 	store := cookie.NewStore(sessionKey)
 	store.Options(sessions.Options{
-		Path:     "/",              // Cookie is valid for entire site
-		MaxAge:   86400 * 7,        // 7 days
-		HttpOnly: true,             // Prevent JavaScript access
-		Secure:   true,             // Require HTTPS
+		Path:     "/",       // Cookie is valid for entire site
+		MaxAge:   86400 * 7, // 7 days
+		HttpOnly: true,      // Prevent JavaScript access
+		Secure:   true,      // Require HTTPS
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -155,13 +155,13 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to setup session store:", err)
 	}
-	
+
 	// Modify cookie settings for development
 	store.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   86400 * 7,
 		HttpOnly: true,
-		Secure:   false, // Set to false for development
+		Secure:   false,                // Set to false for development
 		SameSite: http.SameSiteLaxMode, // Use Lax for development
 	})
 
