@@ -32,7 +32,7 @@ func LoadConfig() (*Config, error) {
 	
 	// Database config
 	cfg.Database.Host = host
-	cfg.Database.Port = getEnv("DB_PORT", "5433")
+	cfg.Database.Port = getEnv("DB_PORT", "5432")
 	cfg.Database.User = getEnv("DB_USER", "postgres")
 	cfg.Database.Password = getEnv("DB_PASSWORD", "password")
 	cfg.Database.DBName = getEnv("DB_NAME", "kthais")
