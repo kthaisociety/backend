@@ -447,31 +447,3 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
-
-func getWorkingDir() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return fmt.Sprintf("error getting working dir: %v", err)
-	}
-	return dir
-}
-
-func findEnvFiles() []string {
-	files := []string{}
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		return []string{fmt.Sprintf("error reading dir: %v", err)}
-	}
-	
-	for _, entry := range entries {
-		if !entry.IsDir() && (entry.Name() == ".env" || entry.Name() == ".env.local") {
-			info, err := entry.Info()
-			if err != nil {
-				files = append(files, fmt.Sprintf("%s (error getting info: %v)", entry.Name(), err))
-				continue
-			}
-			files = append(files, fmt.Sprintf("%s (size: %d, mode: %v)", entry.Name(), info.Size(), info.Mode()))
-		}
-	}
-	return files
-}
