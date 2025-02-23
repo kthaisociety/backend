@@ -25,7 +25,11 @@ jobs:
       run: go build -v ./...
 
     - name: Check formatting
-      run: gofmt -d -s .
+      run: |
+        if [ -n "$(gofmt -d -s .)" ]; then
+          gofmt -d -s .
+          exit 1
+        fi
 
     - name: Test
       run: go test -v ./...
