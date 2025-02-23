@@ -24,6 +24,10 @@ type Config struct {
 	}
 	FrontendURL string
 	BackendURL  string
+	Redis struct {
+		Host string
+		Port string
+	}
 }
 
 func LoadConfig() (*Config, error) {
@@ -41,6 +45,10 @@ func LoadConfig() (*Config, error) {
 	cfg.Database.DBName = getEnv("DB_NAME", "kthais")
 	cfg.Database.SSLMode = getEnv("DB_SSLMODE", "disable")
 	cfg.Server.Port = getEnv("SERVER_PORT", "8080")
+
+	// Redis config
+	cfg.Redis.Host = getEnv("REDIS_HOST", "redis")
+	cfg.Redis.Port = getEnv("REDIS_PORT", "6379")
 
 	// Frontend and Backend URLs
 	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")

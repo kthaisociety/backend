@@ -1,52 +1,99 @@
 package middleware
 
 import (
-	"sync"
+	"context"
+	"fmt"
 	"time"
 
+	"backend/internal/config"
+	"backend/internal/database"
+
 	"github.com/gin-gonic/gin"
-	"golang.org/x/time/rate"
+	"github.com/redis/go-redis/v9"
 )
 
-type IPRateLimiter struct {
-	ips map[string]*rate.Limiter
-	mu  *sync.RWMutex
-	r   rate.Limit
-	b   int
+type RedisRateLimiter struct {
+	client      *redis.Client
+	maxRequests int
+	window      time.Duration
 }
 
-func NewIPRateLimiter(r rate.Limit, b int) *IPRateLimiter {
-	return &IPRateLimiter{
-		ips: make(map[string]*rate.Limiter),
-		mu:  &sync.RWMutex{},
-		r:   r,
-		b:   b,
+func NewRedisRateLimiter(cfg *config.Config, maxRequests int, window time.Duration) (*RedisRateLimiter, error) {
+	client, err := database.GetRedisClient(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Redis client: %v", err)
 	}
+
+	// Test connection
+	ctx := context.Background()
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("failed to connect to Redis: %v", err)
+	}
+
+	return &RedisRateLimiter{
+		client:      client,
+		maxRequests: maxRequests,
+		window:      window,
+	}, nil
 }
 
-func (i *IPRateLimiter) GetLimiter(ip string) *rate.Limiter {
-	i.mu.Lock()
-	defer i.mu.Unlock()
+func (rl *RedisRateLimiter) Allow(ctx context.Context, key string) (bool, error) {
+	pipe := rl.client.Pipeline()
+	
+	now := time.Now().UnixNano()
+	windowStart := now - rl.window.Nanoseconds()
 
-	limiter, exists := i.ips[ip]
-	if !exists {
-		limiter = rate.NewLimiter(i.r, i.b)
-		i.ips[ip] = limiter
+	// Remove old requests
+	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprint(windowStart))
+	
+	// Add current request
+	pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: now})
+	
+	// Count requests in window
+	pipe.ZCard(ctx, key)
+	
+	// Set key expiration
+	pipe.Expire(ctx, key, rl.window)
+
+	results, err := pipe.Exec(ctx)
+	if err != nil {
+		return false, err
 	}
 
-	return limiter
+	// Get count from third command (ZCard)
+	count := results[2].(*redis.IntCmd).Val()
+	
+	return count <= int64(rl.maxRequests), nil
 }
 
 func RateLimit() gin.HandlerFunc {
-	limiter := NewIPRateLimiter(rate.Every(1*time.Minute), 5) // 5 requests per minute
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load config: %v", err))
+	}
+
+	limiter, err := NewRedisRateLimiter(cfg, 5, time.Minute)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create rate limiter: %v", err))
+	}
 
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
-		if !limiter.GetLimiter(ip).Allow() {
+		key := fmt.Sprintf("rate_limit:%s", ip)
+
+		allowed, err := limiter.Allow(c.Request.Context(), key)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Rate limiter error"})
+			c.Abort()
+			return
+		}
+
+		if !allowed {
 			c.JSON(429, gin.H{"error": "Too many requests"})
 			c.Abort()
 			return
 		}
+
 		c.Next()
 	}
 } 
