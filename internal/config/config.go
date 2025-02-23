@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -56,7 +57,8 @@ func LoadConfig() (*Config, error) {
 
 	// Log OAuth configuration status
 	if cfg.OAuth.GoogleClientID == "" || cfg.OAuth.GoogleClientSecret == "" {
-		fmt.Println("Warning: Google OAuth credentials not configured. OAuth functionality will be disabled.")
+		log.Fatalf("Warning: Google OAuth credentials not configured. OAuth functionality will be disabled.")
+		os.Exit(1)
 	}
 
 	return cfg, nil
