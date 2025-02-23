@@ -120,13 +120,14 @@ func main() {
 	}
 
 	// Drop existing tables to handle schema changes
-	if err := db.Migrator().DropTable(&models.User{}); err != nil {
+	if err := db.Migrator().DropTable(&models.User{}, &models.Profile{}); err != nil {
 		log.Printf("Warning: Failed to drop tables: %v", err)
 	}
 
 	// Auto migrate the schema
 	err = db.AutoMigrate(
 		&models.User{},
+		&models.Profile{},
 		&models.Event{},
 		&models.Registration{},
 		&models.TeamMember{},

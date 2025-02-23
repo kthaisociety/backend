@@ -194,11 +194,8 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new user
 		user = models.User{
-			Email:     gothUser.Email,
-			Provider:  "google",
-			FirstName: firstName,
-			LastName:  lastName,
-			Image:     gothUser.AvatarURL,
+			Email:    gothUser.Email,
+			Provider: "google",
 		}
 
 		if err := h.db.Create(&user).Error; err != nil {
@@ -206,30 +203,68 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 			redirectWithError(c, "Failed to create account")
 			return
 		}
+
+		// Create associated profile
+		profile := models.Profile{
+			UserID:    user.ID,
+			Email:     gothUser.Email,
+			FirstName: firstName,
+			LastName:  lastName,
+			Image:     gothUser.AvatarURL,
+		}
+
+		if err := h.db.Create(&profile).Error; err != nil {
+			log.Printf("Failed to create profile: %v", err)
+			redirectWithError(c, "Failed to create profile")
+			return
+		}
 	} else if result.Error != nil {
 		log.Printf("Database error: %v", result.Error)
 		redirectWithError(c, "Database error")
 		return
 	} else {
-		// Update existing user
-		user.Provider = "google"
-		user.FirstName = firstName
-		user.LastName = lastName
-		user.Image = gothUser.AvatarURL
+		// Update existing profile
+		var profile models.Profile
+		if err := h.db.Where("user_id = ?", user.ID).First(&profile).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				// Create profile if it doesn't exist
+				profile = models.Profile{
+					UserID:    user.ID,
+					Email:     gothUser.Email,
+					FirstName: firstName,
+					LastName:  lastName,
+					Image:     gothUser.AvatarURL,
+				}
+				if err := h.db.Create(&profile).Error; err != nil {
+					log.Printf("Failed to create profile: %v", err)
+					redirectWithError(c, "Failed to create profile")
+					return
+				}
+			} else {
+				log.Printf("Failed to fetch profile: %v", err)
+				redirectWithError(c, "Database error")
+				return
+			}
+		} else {
+			// Update existing profile
+			profile.FirstName = firstName
+			profile.LastName = lastName
+			profile.Image = gothUser.AvatarURL
 
-		if err := h.db.Save(&user).Error; err != nil {
-			log.Printf("Failed to update user: %v", err)
-			redirectWithError(c, "Failed to update account")
-			return
+			if err := h.db.Save(&profile).Error; err != nil {
+				log.Printf("Failed to update profile: %v", err)
+				redirectWithError(c, "Failed to update profile")
+				return
+			}
 		}
 	}
 
-	// Set session with explicit domain
+	// Set session
 	session := sessions.Default(c)
 	session.Clear()
 	session.Set("user_id", user.ID)
 	session.Set("email", user.Email)
-	session.Set("authenticated", true) // Add explicit authentication flag
+	session.Set("authenticated", true)
 	
 	if err := session.Save(); err != nil {
 		log.Printf("Failed to save session: %v", err)
@@ -237,9 +272,8 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Redirect to frontend with explicit success parameter
+	// Redirect to frontend
 	frontendURL := cfg.FrontendURL 
-	
 	dashboardURL := fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
@@ -288,22 +322,24 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	var user models.User
-	if err := h.db.First(&user, userID).Error; err != nil {
-		log.Printf("Failed to fetch user data: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user data"})
+	var profile models.Profile
+	if err := h.db.Where("user_id = ?", userID).First(&profile).Error; err != nil {
+		log.Printf("Failed to fetch profile data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profile data"})
 		return
 	}
-	fmt.Println(user)
-	// Transform response to maintain API compatibility
+
+	// Transform response
 	response := gin.H{
 		"user": gin.H{
-			"id":       user.ID,
-			"email":    user.Email,
-			"provider": user.Provider,
-			"firstName": user.FirstName,
-			"lastName":  user.LastName,
-			"image":     user.Image,
+			"id":             userID,
+			"email":         profile.Email,
+			"firstName":     profile.FirstName,
+			"lastName":      profile.LastName,
+			"image":         profile.Image,
+			"university":    profile.University,
+			"programme":     profile.Programme,
+			"graduationYear": profile.GraduationYear,
 		},
 	}
 

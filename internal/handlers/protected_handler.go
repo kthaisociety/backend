@@ -36,14 +36,14 @@ func (h *ProtectedHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	var user models.User
-	if err := h.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user data"})
+	var profile models.Profile
+	if err := h.DB.Where("user_id = ?", userID).First(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profile data"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user": user,
+		"user": profile,
 	})
 }
 
@@ -56,10 +56,13 @@ func (h *ProtectedHandler) UpdateMe(c *gin.Context) {
 	}
 
 	var updateData struct {
-		Email     string `json:"email"`
-		FirstName string `json:"firstName"`
-		LastName  string `json:"lastName"`
-		Image     string `json:"image"`
+		Email         string `json:"email"`
+		FirstName     string `json:"firstName"`
+		LastName      string `json:"lastName"`
+		Image         string `json:"image"`
+		University    string `json:"university"`
+		Programme     string `json:"programme"`
+		GraduationYear int   `json:"graduationYear"`
 	}
 
 	if err := c.ShouldBindJSON(&updateData); err != nil {
@@ -67,26 +70,29 @@ func (h *ProtectedHandler) UpdateMe(c *gin.Context) {
 		return
 	}
 
-	// Find the user
-	var user models.User
-	if err := h.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user"})
+	// Find the profile
+	var profile models.Profile
+	if err := h.DB.Where("user_id = ?", userID).First(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profile"})
 		return
 	}
 
-	// Update user fields
-	user.Email = updateData.Email
-	user.FirstName = updateData.FirstName
-	user.LastName = updateData.LastName
-	user.Image = updateData.Image
+	// Update profile fields
+	profile.Email = updateData.Email
+	profile.FirstName = updateData.FirstName
+	profile.LastName = updateData.LastName
+	profile.Image = updateData.Image
+	profile.University = updateData.University
+	profile.Programme = updateData.Programme
+	profile.GraduationYear = updateData.GraduationYear
 
-	if err := h.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+	if err := h.DB.Save(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "User updated successfully",
-		"user":    user,
+		"message": "Profile updated successfully",
+		"user":    profile,
 	})
 } 
