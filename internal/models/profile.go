@@ -1,19 +1,17 @@
 package models
 
 import (
-	"time"
-
 	"gorm.io/gorm"
 )
 
 type Profile struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	UserID    uint           `gorm:"not null" json:"user_id"`
-	User      User           `gorm:"foreignKey:UserID" json:"user"`
-	FirstName string         `json:"first_name"`
-	LastName  string         `json:"last_name"`
-	Bio       string         `json:"bio"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	gorm.Model
+	UserID         uint   `gorm:"not null;unique"`
+	Email          string `gorm:"uniqueIndex;not null" json:"email"`
+	FirstName      string `gorm:"not null"`
+	LastName       string `gorm:"not null"`
+	Image          string `json:"image,omitempty"`
+	University     string `json:"university,omitempty"`
+	Programme      string `json:"programme,omitempty"`
+	GraduationYear int    `json:"graduationYear,omitempty"`
 }
