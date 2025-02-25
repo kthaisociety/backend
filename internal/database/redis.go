@@ -19,7 +19,8 @@ func GetRedisClient(cfg *config.Config) (*redis.Client, error) {
 
 	redisOnce.Do(func() {
 		redisClient = redis.NewClient(&redis.Options{
-			Addr: fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
+			Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
+			Password: cfg.Redis.Password,
 		})
 	})
 
