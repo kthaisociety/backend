@@ -35,12 +35,8 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	cfg := &Config{}
 
-	// Add debug logging
-	host := getEnv("DB_HOST", "localhost")
-	fmt.Printf("Database Host: %s\n", host)
-
 	// Database config
-	cfg.Database.Host = host
+	cfg.Database.Host = getEnv("DB_HOST", "localhost")
 	cfg.Database.Port = getEnv("DB_PORT", "5432")
 	cfg.Database.User = getEnv("DB_USER", "postgres")
 	cfg.Database.Password = getEnv("DB_PASSWORD", "password")

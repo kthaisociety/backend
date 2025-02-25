@@ -30,10 +30,6 @@ func InitAuth(cfg *config.Config) error {
 	fmt.Printf("InitAuth - Client ID length: %d\n", len(clientID))
 	fmt.Printf("InitAuth - Client Secret length: %d\n", len(clientSecret))
 
-	if clientID == "" || clientSecret == "" {
-		return fmt.Errorf("google oauth credentials not configured")
-	}
-
 	goth.UseProviders(
 		google.New(
 			clientID,
