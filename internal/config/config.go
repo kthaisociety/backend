@@ -28,7 +28,7 @@ type Config struct {
 		Host string
 		Port string
 	}
-	SessionKey     string
+	SessionKey      string
 	DevelopmentMode bool
 }
 
