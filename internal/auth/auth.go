@@ -94,8 +94,17 @@ func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 		return
 	}
 
-	// Get the auth URL
+	// Generate a secure state
 	state := uuid.New().String()
+
+	// Store the state in the session
+	session := sessions.Default(c)
+	session.Set("oauth_state", state)
+	if err := session.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
+		return
+	}
+
 	authURL, err := provider.BeginAuth(state)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin auth"})
@@ -124,9 +133,26 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	// Get the state from the query parameters
 	params := c.Request.URL.Query()
-	state := params.Get("state")
-	gothSession, err := provider.BeginAuth(state)
+	receivedState := params.Get("state")
+
+	// Retrieve the stored state from the session
+	session := sessions.Default(c)
+	expectedState := session.Get("oauth_state")
+
+	// Clear the state from the session immediately
+	session.Delete("oauth_state")
+	session.Save()
+
+	// Verify the state matches
+	if expectedState == nil || receivedState != expectedState.(string) {
+		log.Printf("State mismatch: expected %v, got %v", expectedState, receivedState)
+		redirectWithError(c, "Invalid authentication state")
+		return
+	}
+
+	gothSession, err := provider.BeginAuth(receivedState)
 	if err != nil {
 		log.Printf("Failed to begin auth: %v", err)
 		redirectWithError(c, "Authentication failed")
@@ -249,7 +275,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	// Set session
-	session := sessions.Default(c)
+	session = sessions.Default(c)
 	session.Clear()
 	session.Set("user_id", user.ID)
 	session.Set("email", user.Email)
