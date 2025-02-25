@@ -15,6 +15,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/google"
 	"gorm.io/gorm"
@@ -94,7 +95,7 @@ func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 	}
 
 	// Get the auth URL
-	state := "random-string" // In production, use a secure random string
+	state := uuid.New().String()
 	authURL, err := provider.BeginAuth(state)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin auth"})
