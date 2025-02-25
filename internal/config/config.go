@@ -25,8 +25,9 @@ type Config struct {
 	FrontendURL string
 	BackendURL  string
 	Redis       struct {
-		Host string
-		Port string
+		Host     string
+		Port     string
+		Password string
 	}
 	SessionKey      string
 	DevelopmentMode bool
@@ -45,8 +46,9 @@ func LoadConfig() (*Config, error) {
 	cfg.Server.Port = getEnv("SERVER_PORT", "8080")
 
 	// Redis config
-	cfg.Redis.Host = getEnv("REDIS_HOST", "redis")
+	cfg.Redis.Host = getEnv("REDIS_HOST", "localhost")
 	cfg.Redis.Port = getEnv("REDIS_PORT", "6379")
+	cfg.Redis.Password = getEnv("REDIS_PASSWORD", "")
 
 	// Frontend and Backend URLs
 	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
