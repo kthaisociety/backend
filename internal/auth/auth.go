@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	"backend/internal/models"
@@ -24,19 +23,15 @@ import (
 // Add this line to ensure AuthHandler implements Handler interface
 var _ handlers.Handler = (*AuthHandler)(nil)
 
-func InitAuth() error {
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+func InitAuth(cfg *config.Config) error {
+	clientID := cfg.OAuth.GoogleClientID
+	clientSecret := cfg.OAuth.GoogleClientSecret
 
 	fmt.Printf("InitAuth - Client ID length: %d\n", len(clientID))
 	fmt.Printf("InitAuth - Client Secret length: %d\n", len(clientSecret))
 
 	if clientID == "" || clientSecret == "" {
 		return fmt.Errorf("google oauth credentials not configured")
-	}
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
 	}
 
 	goth.UseProviders(

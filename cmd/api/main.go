@@ -35,7 +35,11 @@ func generateSecureKey() ([]byte, error) {
 
 func setupStore() (sessions.Store, error) {
 	// Generate a secure key or load from environment
-	key := os.Getenv("SESSION_KEY")
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal("Failed to load config:", err)
+	}
+	key := cfg.SessionKey
 	var sessionKey []byte
 
 	if key == "" {
@@ -93,18 +97,6 @@ func main() {
 		}
 	}
 
-	// Explicitly set environment variables from .env.local if not already set
-	if os.Getenv("GOOGLE_CLIENT_ID") == "" {
-		os.Setenv("GOOGLE_CLIENT_ID", "1056806786097-gatubd3kl6c1e027n0tbi7u3au5o27u7.apps.googleusercontent.com")
-	}
-	if os.Getenv("GOOGLE_CLIENT_SECRET") == "" {
-		os.Setenv("GOOGLE_CLIENT_SECRET", "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")
-	}
-
-	// Print environment variables (masked)
-	log.Printf("GOOGLE_CLIENT_ID present: %v", os.Getenv("GOOGLE_CLIENT_ID") != "")
-	log.Printf("GOOGLE_CLIENT_SECRET present: %v", os.Getenv("GOOGLE_CLIENT_SECRET") != "")
-
 	// Load config
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -132,7 +124,7 @@ func main() {
 	}
 
 	// Initialize auth
-	if err := auth.InitAuth(); err != nil {
+	if err := auth.InitAuth(cfg); err != nil {
 		log.Printf("Warning: OAuth initialization failed: %v", err)
 	}
 
@@ -157,13 +149,15 @@ func main() {
 	}
 
 	// Modify cookie settings for development
-	store.Options(sessions.Options{
-		Path:     "/",
-		MaxAge:   86400 * 7,
-		HttpOnly: true,
-		Secure:   false,                // Set to false for development
-		SameSite: http.SameSiteLaxMode, // Use Lax for development
-	})
+	if cfg.DevelopmentMode {
+		store.Options(sessions.Options{
+			Path:     "/",
+			MaxAge:   86400 * 7,
+			HttpOnly: true,
+			Secure:   false,                // Set to false for development
+			SameSite: http.SameSiteLaxMode, // Use Lax for development
+		})
+	}
 
 	r.Use(sessions.Sessions("kthais_session", store))
 

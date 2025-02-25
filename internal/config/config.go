@@ -28,6 +28,8 @@ type Config struct {
 		Host string
 		Port string
 	}
+	SessionKey     string
+	DevelopmentMode bool
 }
 
 func LoadConfig() (*Config, error) {
@@ -57,6 +59,9 @@ func LoadConfig() (*Config, error) {
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
 	cfg.OAuth.GoogleClientSecret = getEnv("GOOGLE_CLIENT_SECRET", "")
+
+	cfg.SessionKey = getEnv("SESSION_KEY", "")
+	cfg.DevelopmentMode = getEnv("DEVELOPMENT", "true") == "true"
 
 	// Debug OAuth configuration
 	fmt.Printf("Google Client ID: %s\n", maskString(cfg.OAuth.GoogleClientID))
