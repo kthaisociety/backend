@@ -1,0 +1,5 @@
+{% extends "email/event/register.html" %}
+
+{% block email_message_intro %}
+    <p>Remember to join us for <strong>{{ registration.event.name }}</strong>!</p>
+{% endblock %}

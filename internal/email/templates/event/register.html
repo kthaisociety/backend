@@ -1,0 +1,26 @@
+{% extends "email/base.html" %}
+{% load app_tags %}
+{% load i18n %}
+
+{% block email_message_pre %}
+    {% block email_message_intro %}
+        <p>Thank-you for registering to <strong>{{ registration.event.name }}</strong>!</p>
+    {% endblock %}
+    {% if registration.event.sessions.all|length == 1 %}
+        <h5 style="margin-bottom: 8px;">Time: {{ registration.event.starts_at|date:"F j, Y H:i" }}{% if registration.event.starts_at != registration.event.ends_at %} - {% if registration.event.starts_at.date != registration.event.ends_at.date %}{{ registration.event.ends_at|date:"F j, Y H:i" }}{% else %}{{ registration.event.ends_at|date:"H:i" }}{% endif %}{% endif %}</h5>
+    {% elif registration.event.sessions.all|length > 1 %}
+        {% for session in registration.event.sessions.all %}
+            <p style="margin-bottom: 2px;"><i>{{ session.name }}</i></p>
+            <h5 style="margin-bottom: 8px;">{{ session.starts_at|date:"F j, Y H:i" }}{% if session.starts_at != session.ends_at %} - {% if session.starts_at.date != session.ends_at.date %}{{ session.ends_at|date:"F j, Y H:i" }}{% else %}{{ session.ends_at|date:"H:i" }}{% endif %}{% endif %}</h5>
+        {% endfor %}
+    {% endif %}
+    {% if registration.event.location %}
+        <h5 style="margin-top: 20px; margin-bottom: 8px;">Location: {{ registration.event.location }}</h5>
+    {% endif %}
+    <br>
+    <img src="https://{{ app_domain }}{{ registration.event.picture.crop.1500x1000 }}" style="width: 100%; margin-bottom: 25px;">
+{% endblock %}
+
+{% block email_button_url %}{% full_url "events_event" registration.event.code %}{% endblock %}
+
+{% block email_button_text %}View event{% endblock %}
