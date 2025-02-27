@@ -31,6 +31,24 @@ type QueryParams interface {
 	Params() map[string]string
 }
 
+// MailchimpAPIError is the error response from the Mailchimp API
+type MailchimpAPIError struct {
+	Type            string `json:"type,omitempty"`
+	Title           string `json:"title,omitempty"`
+	Status          int    `json:"status,omitempty"`
+	Detail          string `json:"detail,omitempty"`
+	Instance        string `json:"instance,omitempty"`
+	ReferenceNumber string `json:"ref_no,omitempty"`
+	Errors          []struct {
+		Field   string `json:"field"`
+		Message string `json:"message"`
+	} `json:"errors,omitempty"`
+}
+
+func (err *MailchimpAPIError) Error() string {
+	return fmt.Sprintf("Status: %d \n Type: %s \n Title: %s \n Details: %s \n Error: %s", err.Status, err.Type, err.Title, err.Detail, err.Errors)
+}
+
 // InitMailchimpApi creates a MailchimpAPI
 func InitMailchimpApi(cfg *config.Config) (*MailchimpAPI, error) {
 	apiKey := cfg.Mailchimp.APIKey
@@ -122,7 +140,7 @@ func (api *MailchimpAPI) Request(method, path string, params QueryParams, body, 
 	}
 
 	// Handle API Error
-	var apiError error
+	apiError := new(MailchimpAPIError)
 	err = json.Unmarshal(data, apiError)
 	if err != nil {
 		return err
