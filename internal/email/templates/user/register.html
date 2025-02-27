@@ -1,0 +1,14 @@
+{{template "base.html" .}}
+
+{{define "email_message_pre"}}
+<p>Thank you for registering! In order to complete your registration, we need you to confirm this email as soon as
+    possible by clicking the following button.</p>
+{{end}}
+
+{{define "email_button_url"}}{{.VerificationURL}}{{end}}
+
+{{define "email_button_text"}}Confirm email{{end}}
+
+{{define "email_message_post"}}
+<p>If you did not register for an account with {{.AppName}}, please ignore this email.</p>
+{{end}}
