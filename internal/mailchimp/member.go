@@ -76,7 +76,7 @@ func UpdateMember(listId, id *string, request *MemberRequest, api *MailchimpAPI)
 }
 
 func DeleteMember(listId, id *string, api *MailchimpAPI) error {
-	err := api.Request(Delete, fmt.Sprintf(delete_path, *listId, *id), nil, nil, nil)
+	err := api.Request(Post, fmt.Sprintf(delete_path, *listId, *id), nil, nil, nil)
 	if err != nil {
 		return err
 	}
