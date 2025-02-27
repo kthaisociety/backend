@@ -60,6 +60,7 @@ func LoadConfig() (*Config, error) {
 
 	// Mailchimp config
 	cfg.Mailchimp.APIKey = getEnv("MAILCHIMP_API_KEY", "")
+	cfg.Mailchimp.User = getEnv("MAILCHIMP_USER", "")
 
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
