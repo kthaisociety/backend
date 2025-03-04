@@ -31,6 +31,11 @@ type Config struct {
 	}
 	SessionKey      string
 	DevelopmentMode bool
+	Mailchimp       struct {
+		APIKey string
+		User   string
+		ListID string
+	}
 }
 
 func LoadConfig() (*Config, error) {
@@ -53,6 +58,11 @@ func LoadConfig() (*Config, error) {
 	// Frontend and Backend URLs
 	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
 	cfg.BackendURL = getEnv("BACKEND_URL", "http://localhost:8080")
+
+	// Mailchimp config
+	cfg.Mailchimp.APIKey = getEnv("MAILCHIMP_API_KEY", "")
+	cfg.Mailchimp.User = getEnv("MAILCHIMP_USER", "")
+	cfg.Mailchimp.ListID = getEnv("MAILCHIMP_LIST_ID", "")
 
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
