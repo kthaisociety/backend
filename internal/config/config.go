@@ -34,6 +34,7 @@ type Config struct {
 	Mailchimp       struct {
 		APIKey string
 		User   string
+		ListID string
 	}
 }
 
@@ -61,6 +62,7 @@ func LoadConfig() (*Config, error) {
 	// Mailchimp config
 	cfg.Mailchimp.APIKey = getEnv("MAILCHIMP_API_KEY", "")
 	cfg.Mailchimp.User = getEnv("MAILCHIMP_USER", "")
+	cfg.Mailchimp.ListID = getEnv("MAILCHIMP_LIST_ID", "")
 
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")

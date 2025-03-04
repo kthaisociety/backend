@@ -24,7 +24,8 @@ var DatacenterRegex = regexp.MustCompile(`[^-]\w+$`)
 type MailchimpAPI struct {
 	Key      string
 	User     string
-	endpoint string
+	ListId   string
+	Endpoint string
 }
 
 type QueryParams interface {
@@ -53,6 +54,7 @@ func (err *MailchimpAPIError) Error() string {
 func InitMailchimpApi(cfg *config.Config) (*MailchimpAPI, error) {
 	apiKey := cfg.Mailchimp.APIKey
 	user := cfg.Mailchimp.User
+	listId := cfg.Mailchimp.ListID
 
 	if len(apiKey) == 0 {
 		return nil, fmt.Errorf("mailchimp API key is missing")
@@ -66,7 +68,8 @@ func InitMailchimpApi(cfg *config.Config) (*MailchimpAPI, error) {
 	return &MailchimpAPI{
 		User:     user,
 		Key:      apiKey,
-		endpoint: u.String(),
+		ListId:   listId,
+		Endpoint: u.String(),
 	}, nil
 }
 
@@ -74,7 +77,7 @@ func InitMailchimpApi(cfg *config.Config) (*MailchimpAPI, error) {
 func (api *MailchimpAPI) Request(method, path string, params QueryParams, body, response any) error {
 	client := &http.Client{}
 
-	requestURL := fmt.Sprintf("%s%s", api.endpoint, path)
+	requestURL := fmt.Sprintf("%s%s", api.Endpoint, path)
 
 	// Prepare body
 	var bodyBytes io.Reader

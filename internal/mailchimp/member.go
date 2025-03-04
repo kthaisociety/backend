@@ -26,26 +26,36 @@ const (
 	Delete string = "DELETE"
 )
 
+// MergeFields are the merge fields for a member
+type MergeFields struct {
+	FirstName      string `json:"FNAME,omitempty"`
+	LastName       string `json:"LNAME,omitempty"`
+	Programme      string `json:"PROGRAM,omitempty"`
+	GraduationYear int    `json:"YEAR OF GR,omitempty"`
+}
+
 // MemberRequest is the request body for adding or updating a member
 type MemberRequest struct {
-	Email  string `json:"email_address"`
-	Status string `json:"status"`
+	Email       string      `json:"email_address"`
+	Status      string      `json:"status,omitempty"`
+	MergeFields MergeFields `json:"merge_fields,omitempty"`
 }
 
-// MemberResponse is the response body for adding or updating a member
+// MemberResponse is the response body for retrieving, adding or updating a member
 type MemberResponse struct {
-	Id        string `json:"id"`
-	Email     string `json:"email_address"`
-	EmailId   string `json:"unique_email_id"`
-	ContactId string `json:"contact_id"`
-	FullName  string `json:"full_name"`
-	Status    string `json:"status"`
+	Id          string      `json:"id"`
+	Email       string      `json:"email_address"`
+	EmailId     string      `json:"unique_email_id"`
+	ContactId   string      `json:"contact_id"`
+	FullName    string      `json:"full_name"`
+	Status      string      `json:"status"`
+	MergeFields MergeFields `json:"merge_fields,omitempty"`
 }
 
-func GetMember(listId, id *string, api *MailchimpAPI) (*MemberResponse, error) {
+func (api *MailchimpAPI) GetMember(id *string) (*MemberResponse, error) {
 	response := &MemberResponse{}
 
-	err := api.Request(Get, fmt.Sprintf(member_path, *listId, *id), nil, nil, response)
+	err := api.Request(Get, fmt.Sprintf(member_path, api.ListId, *id), nil, nil, response)
 	if err != nil {
 		return nil, err
 	}
@@ -53,10 +63,10 @@ func GetMember(listId, id *string, api *MailchimpAPI) (*MemberResponse, error) {
 	return response, nil
 }
 
-func AddMember(listId *string, request *MemberRequest, api *MailchimpAPI) (*MemberResponse, error) {
+func (api *MailchimpAPI) AddMember(request *MemberRequest) (*MemberResponse, error) {
 	response := &MemberResponse{}
 
-	err := api.Request(Post, fmt.Sprintf(main_path, *listId), nil, request, response)
+	err := api.Request(Post, fmt.Sprintf(main_path, api.ListId), nil, request, response)
 	if err != nil {
 		return nil, err
 	}
@@ -64,10 +74,10 @@ func AddMember(listId *string, request *MemberRequest, api *MailchimpAPI) (*Memb
 	return response, nil
 }
 
-func UpdateMember(listId, id *string, request *MemberRequest, api *MailchimpAPI) (*MemberResponse, error) {
+func (api *MailchimpAPI) UpdateMember(id *string, request *MemberRequest) (*MemberResponse, error) {
 	response := &MemberResponse{}
 
-	err := api.Request(Patch, fmt.Sprintf(member_path, *listId, *id), nil, request, response)
+	err := api.Request(Patch, fmt.Sprintf(member_path, api.ListId, *id), nil, request, response)
 	if err != nil {
 		return nil, err
 	}
@@ -75,8 +85,8 @@ func UpdateMember(listId, id *string, request *MemberRequest, api *MailchimpAPI)
 	return response, nil
 }
 
-func DeleteMember(listId, id *string, api *MailchimpAPI) error {
-	err := api.Request(Post, fmt.Sprintf(delete_path, *listId, *id), nil, nil, nil)
+func (api *MailchimpAPI) DeleteMember(id *string) error {
+	err := api.Request(Post, fmt.Sprintf(delete_path, api.ListId, *id), nil, nil, nil)
 	if err != nil {
 		return err
 	}
