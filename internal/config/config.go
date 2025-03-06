@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -22,9 +23,9 @@ type Config struct {
 		GoogleClientID     string
 		GoogleClientSecret string
 	}
-	FrontendURL string
-	BackendURL  string
-	Redis       struct {
+	AllowedOrigins []string
+	BackendURL     string
+	Redis          struct {
 		Host     string
 		Port     string
 		Password string
@@ -50,8 +51,16 @@ func LoadConfig() (*Config, error) {
 	cfg.Redis.Port = getEnv("REDIS_PORT", "6379")
 	cfg.Redis.Password = getEnv("REDIS_PASSWORD", "")
 
-	// Frontend and Backend URLs
-	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
+	// Load allowed origins from environment variable
+	// Format: comma-separated list of origins
+	allowedOriginsStr := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
+	cfg.AllowedOrigins = strings.Split(allowedOriginsStr, ",")
+
+	// Trim spaces from each origin
+	for i, origin := range cfg.AllowedOrigins {
+		cfg.AllowedOrigins[i] = strings.TrimSpace(origin)
+	}
+
 	cfg.BackendURL = getEnv("BACKEND_URL", "http://localhost:8080")
 
 	// OAuth config
