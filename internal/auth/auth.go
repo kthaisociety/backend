@@ -171,11 +171,6 @@ func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 }
 
 func (h *AuthHandler) GoogleCallback(c *gin.Context) {
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
 	provider, err := goth.GetProvider("google")
 	if err != nil {
 		log.Printf("Failed to get provider: %v", err)
