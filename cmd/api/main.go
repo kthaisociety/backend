@@ -131,9 +131,9 @@ func main() {
 	// Initialize router
 	r := gin.Default()
 
-	// Add CORS middleware with more permissive settings for development
+	// Add CORS middleware with configurable origins
 	corsConfig := cors.Config{
-		AllowOrigins:     []string{cfg.FrontendURL},
+		AllowOrigins:     cfg.AllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cookie"},
 		ExposeHeaders:    []string{"Set-Cookie"},
