@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"backend/internal/models"
@@ -23,6 +24,31 @@ import (
 
 // Add this line to ensure AuthHandler implements Handler interface
 var _ handlers.Handler = (*AuthHandler)(nil)
+
+// Add this helper function at the package level
+func isOriginAllowed(origin, allowedOrigin string) bool {
+	// If allowedOrigin contains a wildcard
+	if strings.Contains(allowedOrigin, "*") {
+		// Convert the wildcard pattern to a regex pattern
+		// Escape special regex characters and convert * to .*
+		pattern := "^" + strings.Replace(
+			regexp.QuoteMeta(allowedOrigin),
+			"\\*",
+			".*",
+			-1,
+		) + "$"
+
+		matched, err := regexp.MatchString(pattern, origin)
+		if err != nil {
+			log.Printf("Error matching origin pattern: %v", err)
+			return false
+		}
+		return matched
+	}
+
+	// Exact match if no wildcard
+	return origin == allowedOrigin
+}
 
 func InitAuth(cfg *config.Config) error {
 	clientID := cfg.OAuth.GoogleClientID
@@ -94,8 +120,32 @@ func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 		return
 	}
 
-	// Generate a secure state
-	state := uuid.New().String()
+	// Get the origin from the request header
+	origin := c.GetHeader("Origin")
+
+	// Validate that the origin is in the allowed list
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load config"})
+		return
+	}
+
+	// Check if origin is allowed using the new helper function
+	isAllowed := false
+	for _, allowed := range cfg.AllowedOrigins {
+		if isOriginAllowed(origin, allowed) {
+			isAllowed = true
+			break
+		}
+	}
+
+	if !isAllowed {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Origin not allowed"})
+		return
+	}
+
+	// Generate a secure state that includes the origin
+	state := fmt.Sprintf("%s|%s", uuid.New().String(), origin)
 
 	// Store the state in the session
 	session := sessions.Default(c)
@@ -152,10 +202,19 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	// Extract the frontend URL from the state
+	stateParts := strings.Split(receivedState, "|")
+	if len(stateParts) != 2 {
+		log.Printf("Invalid state format")
+		redirectWithError(c, "Invalid authentication state")
+		return
+	}
+	frontendURL := stateParts[1]
+
 	gothSession, err := provider.BeginAuth(receivedState)
 	if err != nil {
 		log.Printf("Failed to begin auth: %v", err)
-		redirectWithError(c, "Authentication failed")
+		redirectWithError(c, fmt.Sprintf("Failed to authorize: %v", err))
 		return
 	}
 
@@ -288,23 +347,27 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	// Redirect to frontend
-	frontendURL := cfg.FrontendURL
 	dashboardURL := fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 
-// Helper function to redirect with error
+// Update the redirectWithError function to use the frontend URL from state
 func redirectWithError(c *gin.Context, message string) {
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	// Get the state from the query parameters
+	params := c.Request.URL.Query()
+	receivedState := params.Get("state")
+
+	// Extract the frontend URL from the state
+	stateParts := strings.Split(receivedState, "|")
+	if len(stateParts) != 2 {
+		log.Printf("Invalid state format in error redirect")
+		return
 	}
-	frontendURL := cfg.FrontendURL
+	frontendURL := stateParts[1]
 
 	// URL encode the error message
 	encodedError := url.QueryEscape(message)
 	redirectURL := fmt.Sprintf("%s/auth/login?error=%s", frontendURL, encodedError)
-
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
