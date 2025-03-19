@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"backend/internal/mailchimp"
 	"backend/internal/models"
 
 	"backend/internal/config"
@@ -58,7 +59,8 @@ func InitAuth(cfg *config.Config) error {
 }
 
 type AuthHandler struct {
-	db *gorm.DB
+	db        *gorm.DB
+	mailchimp *mailchimp.MailchimpAPI
 }
 
 // Update Register method to match the Handler interface
@@ -81,9 +83,10 @@ func (h *AuthHandler) Register(r *gin.RouterGroup) {
 }
 
 // Update constructor to return Handler interface
-func NewAuthHandler(db *gorm.DB) handlers.Handler {
+func NewAuthHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI) handlers.Handler {
 	return &AuthHandler{
-		db: db,
+		db:        db,
+		mailchimp: mailchimp,
 	}
 }
 
@@ -271,6 +274,30 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 				redirectWithError(c, "Failed to update profile")
 				return
 			}
+		}
+	}
+
+	// Check if user is subscribed to the mailing list
+	_, memberResErr := h.mailchimp.GetMember(&gothUser.Email)
+	if memberResErr != nil {
+		serr, ok := memberResErr.(*mailchimp.MailchimpAPIError)
+		if ok && serr.Status == http.StatusNotFound {
+			// User is not subscribed, add them to the mailing list
+			req := &mailchimp.MemberRequest{
+				Email:  gothUser.Email,
+				Status: mailchimp.Subscribed,
+				MergeFields: mailchimp.MergeFields{
+					FirstName: firstName,
+					LastName:  lastName,
+				},
+			}
+
+			_, addErr := h.mailchimp.AddMember(req)
+			if addErr != nil {
+				log.Printf("Failed to add member to mailing list: %v", addErr)
+			}
+		} else {
+			log.Printf("Failed to get member: %v", memberResErr)
 		}
 	}
 
