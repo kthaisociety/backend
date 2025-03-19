@@ -1,0 +1,74 @@
+name: Dokploy Deployment Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Dokploy Deployment
+      id: deploy
+      uses: benbristow/dokploy-deploy-action@0.0.1
+      continue-on-error: true
+      with:
+        auth_token: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
+        application_id: ${{ secrets.DOKPLOY_APPLICATION_ID }}
+        dokploy_url: ${{ secrets.DOKPLOY_URL }}
+
+    - name: Notify Mattermost
+      if: always()
+      run: |
+        STATUS="${{ steps.deploy.outcome }}"
+        MESSAGE="Backend Production Deployment to [api.kthais.com](https://api.kthais.com/api/v1/health) "
+        if [ "$STATUS" == "success" ]; then
+          MESSAGE+="✅ succeeded"
+        else
+          MESSAGE+="❌ failed"
+        fi
+        MESSAGE+="\nCommit: \`${{ github.sha }}\`"
+
+        curl -i -X POST \
+          -H 'Content-Type: application/json' \
+          -H "Authorization: Bearer ${{ secrets.MATTERMOST_GH_ACTIONS_TOKEN }}" \
+          -d "{
+            \"channel_id\": \"${{ secrets.MATTERMOST_TEAM_IT_CHANNELID }}\",
+            \"message\": \"${MESSAGE}\"
+          }" \
+          "${{ secrets.MATTERMOST_URL }}/api/v4/posts"
+
+    - name: Create GitHub Deployment
+      if: steps.deploy.outcome == 'success'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const deploymentUrl = process.env.DEPLOYMENT_URL;
+
+          // Create deployment
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            environment: 'Production',
+            auto_merge: false,
+            required_contexts: [],
+            description: 'Production Deployment'
+          });
+
+          // Set deployment status to success
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: deployment.data.id,
+            state: 'success',
+            environment_url: deploymentUrl,
+            log_url: deploymentUrl,
+            description: 'Deployment successful!'
+          });
+      env:
+        DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
