@@ -123,6 +123,18 @@ func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
 	// Get the origin from the request header
 	origin := c.GetHeader("Origin")
 
+	// If Origin header is missing, use the Host header or a default value
+	if origin == "" {
+		host := c.Request.Host
+		// Determine scheme (http/https)
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		origin = fmt.Sprintf("%s://%s", scheme, host)
+		log.Printf("Origin header missing, using: %s", origin)
+	}
+
 	// Validate that the origin is in the allowed list
 	cfg, err := config.LoadConfig()
 	if err != nil {
