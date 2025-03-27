@@ -30,8 +30,8 @@ const (
 type MergeFields struct {
 	FirstName      string `json:"FNAME,omitempty"`
 	LastName       string `json:"LNAME,omitempty"`
-	Programme      string `json:"PROGRAM,omitempty"`
-	GraduationYear any    `json:"YEAR OF GR,omitempty"` // string if empty, int otherwise
+	Programme      string `json:"MMERGE3,omitempty"`
+	GraduationYear any    `json:"YEAR,omitempty"` // string if empty, int otherwise
 }
 
 // MemberRequest is the request body for adding or updating a member
