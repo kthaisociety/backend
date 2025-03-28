@@ -22,7 +22,7 @@ type Registration struct {
 	User                User               `gorm:"foreignKey:UserID" json:"user"`
 	Status              RegistrationStatus `gorm:"not null" json:"status"`
 	Attended            bool               `gorm:"not null" json:"attended"`
-	DiateryRestrictions string             `json:"diatery_restrictions"`
+	DietaryRestrictions string             `json:"dietary_restrictions"`
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
 	DeletedAt           gorm.DeletedAt     `gorm:"index" json:"-"`

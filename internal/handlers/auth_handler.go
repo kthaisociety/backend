@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"backend/internal/models"
 
 	"backend/internal/config"
-	"backend/internal/handlers"
 	"backend/internal/middleware"
 
 	"github.com/gin-contrib/sessions"
@@ -23,7 +22,31 @@ import (
 )
 
 // Add this line to ensure AuthHandler implements Handler interface
-var _ handlers.Handler = (*AuthHandler)(nil)
+type AuthHandler struct {
+	db *gorm.DB
+}
+
+func NewAuthHandler(db *gorm.DB) *AuthHandler {
+	return &AuthHandler{db: db}
+}
+
+// Update Register method to match the Handler interface
+func (h *AuthHandler) Register(r *gin.RouterGroup) {
+	auth := r.Group("/auth")
+	{
+		// Apply rate limiting to OAuth routes
+		oauth := auth.Group("/")
+		oauth.Use(middleware.RateLimit())
+		{
+			oauth.GET("/google", h.BeginGoogleAuth)
+			oauth.GET("/google/callback", h.GoogleCallback)
+		}
+
+		// Keep only these essential routes
+		auth.GET("/logout", h.Logout)
+		auth.GET("/authenticated", h.CheckAuth)
+	}
+}
 
 // Add this helper function at the package level
 func isOriginAllowed(origin, allowedOrigin string) bool {
@@ -81,36 +104,6 @@ func InitAuth(cfg *config.Config) error {
 	}
 
 	return nil
-}
-
-type AuthHandler struct {
-	db *gorm.DB
-}
-
-// Update Register method to match the Handler interface
-func (h *AuthHandler) Register(r *gin.RouterGroup) {
-	auth := r.Group("/auth")
-	{
-		// Apply rate limiting to OAuth routes
-		oauth := auth.Group("/")
-		oauth.Use(middleware.RateLimit())
-		{
-			oauth.GET("/google", h.BeginGoogleAuth)
-			oauth.GET("/google/callback", h.GoogleCallback)
-		}
-
-		// Keep only these essential routes
-		auth.GET("/logout", h.Logout)
-		auth.GET("/status", h.Status)
-		auth.GET("/user", h.GetUser)
-	}
-}
-
-// Update constructor to return Handler interface
-func NewAuthHandler(db *gorm.DB) handlers.Handler {
-	return &AuthHandler{
-		db: db,
-	}
 }
 
 func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
@@ -284,59 +277,24 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 			redirectWithError(c, "Failed to create account")
 			return
 		}
-
-		// Create associated profile
-		profile := models.Profile{
-			UserID:    user.ID,
-			Email:     gothUser.Email,
-			FirstName: firstName,
-			LastName:  lastName,
-			Image:     gothUser.AvatarURL,
-		}
-
-		if err := h.db.Create(&profile).Error; err != nil {
-			log.Printf("Failed to create profile: %v", err)
-			redirectWithError(c, "Failed to create profile")
-			return
-		}
-	} else if result.Error != nil {
+	} else {
 		log.Printf("Database error: %v", result.Error)
 		redirectWithError(c, "Database error")
 		return
-	} else {
-		// Update existing profile
-		var profile models.Profile
-		if err := h.db.Where("user_id = ?", user.ID).First(&profile).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				// Create profile if it doesn't exist
-				profile = models.Profile{
-					UserID:    user.ID,
-					Email:     gothUser.Email,
-					FirstName: firstName,
-					LastName:  lastName,
-					Image:     gothUser.AvatarURL,
-				}
-				if err := h.db.Create(&profile).Error; err != nil {
-					log.Printf("Failed to create profile: %v", err)
-					redirectWithError(c, "Failed to create profile")
-					return
-				}
-			} else {
-				log.Printf("Failed to fetch profile: %v", err)
-				redirectWithError(c, "Database error")
-				return
-			}
-		} else {
-			// Update existing profile
-			profile.FirstName = firstName
-			profile.LastName = lastName
-			profile.Image = gothUser.AvatarURL
+	}
 
-			if err := h.db.Save(&profile).Error; err != nil {
-				log.Printf("Failed to update profile: %v", err)
-				redirectWithError(c, "Failed to update profile")
-				return
-			}
+	var profile models.Profile
+	if err := h.db.Where("user_id = ?", user.ID).First(&profile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Set session
+			session = sessions.Default(c)
+			session.Clear()
+			session.Set("user_id", user.ID)
+			session.Set("authenticated", true)
+
+			// Redirect to frontend
+			dashboardURL := fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
+			c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 		}
 	}
 
@@ -344,7 +302,6 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	session = sessions.Default(c)
 	session.Clear()
 	session.Set("user_id", user.ID)
-	session.Set("email", user.Email)
 	session.Set("authenticated", true)
 
 	if err := session.Save(); err != nil {
@@ -385,47 +342,37 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
 }
 
-func (h *AuthHandler) Status(c *gin.Context) {
+func (h *AuthHandler) CheckAuth(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id")
 	authenticated := session.Get("authenticated")
 
-	log.Printf("Session check - UserID: %v, Authenticated: %v", userID, authenticated)
+	isAuthenticated := authenticated != nil && authenticated.(bool)
 
-	c.JSON(http.StatusOK, gin.H{
-		"authenticated": authenticated != nil && authenticated.(bool),
-		"user_id":       userID,
-		"email":         session.Get("email"),
-	})
-}
-
-func (h *AuthHandler) GetUser(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id")
-	if userID == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
-		return
-	}
-
-	var profile models.Profile
-	if err := h.db.Where("user_id = ?", userID).First(&profile).Error; err != nil {
-		log.Printf("Failed to fetch profile data: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch profile data"})
-		return
-	}
-
-	// Transform response
+	// Prepare response
 	response := gin.H{
-		"user": gin.H{
-			"id":             userID,
-			"email":          profile.Email,
-			"firstName":      profile.FirstName,
-			"lastName":       profile.LastName,
-			"image":          profile.Image,
-			"university":     profile.University,
-			"programme":      profile.Programme,
-			"graduationYear": profile.GraduationYear,
-		},
+		"authenticated": isAuthenticated,
+		"user_id":       userID,
+	}
+
+	// If authenticated, verify user exists in DB and get user details
+	if isAuthenticated && userID != nil {
+		var user models.User
+		result := h.db.First(&user, userID)
+
+		if result.Error == nil {
+			// User found, add details to response
+			response["email"] = user.Email
+			response["provider"] = user.Provider
+			response["created_at"] = user.CreatedAt
+			response["updated_at"] = user.UpdatedAt
+		} else {
+			// User not found or DB error
+			log.Printf("Error retrieving user %v: %v", userID, result.Error)
+			response["authenticated"] = false
+			session.Clear()
+			session.Save()
+		}
 	}
 
 	c.JSON(http.StatusOK, response)

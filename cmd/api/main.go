@@ -9,10 +9,8 @@ import (
 	"os"
 	"time"
 
-	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/handlers"
-	"backend/internal/middleware"
 	"backend/internal/models"
 
 	"github.com/gin-contrib/cors"
@@ -124,7 +122,7 @@ func main() {
 	}
 
 	// Initialize auth
-	if err := auth.InitAuth(cfg); err != nil {
+	if err := handlers.InitAuth(cfg); err != nil {
 		log.Printf("Warning: OAuth initialization failed: %v", err)
 	}
 
@@ -179,7 +177,7 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 	// Register all handlers
 	allHandlers := []handlers.Handler{
 		handlers.NewEventHandler(db),
-		auth.NewAuthHandler(db),
+		handlers.NewAuthHandler(db),
 		handlers.NewRegistrationHandler(db),
 		handlers.NewProfileHandler(db),
 	}
@@ -188,9 +186,4 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 		h.Register(api)
 	}
 
-	// Protected routes
-	protected := api.Group("/protected")
-	protected.Use(middleware.AuthRequired())
-	protectedHandler := handlers.NewProtectedHandler(db)
-	protectedHandler.Register(protected)
 }

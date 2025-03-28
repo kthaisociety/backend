@@ -30,14 +30,13 @@ const (
 
 type Profile struct {
 	gorm.Model
-	UserID         uint         `gorm:"not null;unique"`
+	UserID         uint         `gorm:"not null;unique" json:"user_id"`
 	Email          string       `gorm:"uniqueIndex;not null" json:"email"`
-	FirstName      string       `gorm:"not null"`
-	LastName       string       `gorm:"not null"`
-	Image          string       `json:"image,omitempty"`
-	University     string       `json:"university,omitempty"`
-	Programme      StudyProgram `json:"programme,omitempty"`
-	GraduationYear int          `json:"graduationYear,omitempty"`
-	GitHubLink     string       `json:"githubLink,omitempty"`
-	LinkedInLink   string       `json:"linkedinLink,omitempty"`
+	FirstName      string       `gorm:"not null" json:"first_name"`
+	LastName       string       `gorm:"not null" json:"last_name"`
+	University     string       `gorm:"not null" json:"university"`
+	Programme      StudyProgram `gorm:"not null" json:"programme,omitempty"`
+	GraduationYear int          `gorm:"not null" json:"graduation_year,omitempty"`
+	GitHubLink     string       `json:"github_link,omitempty"`
+	LinkedInLink   string       `json:"linkedin_link,omitempty"`
 }

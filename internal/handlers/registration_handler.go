@@ -22,6 +22,7 @@ func (h *RegistrationHandler) Register(r *gin.RouterGroup) {
 	{
 		// Public endpoints (require auth)
 		registrations.Use(middleware.AuthRequired())
+		registrations.Use(middleware.RegisteredUserRequired(h.db))
 		registrations.GET("", h.List)
 		registrations.POST("", h.Create)
 		registrations.GET("/:id", h.Get)
