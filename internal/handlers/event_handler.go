@@ -18,7 +18,7 @@ func NewEventHandler(db *gorm.DB) *EventHandler {
 }
 
 func (h *EventHandler) Register(r *gin.RouterGroup) {
-	events := r.Group("/events")
+	events := r.Group("/event")
 	{
 		events.GET("", h.List)
 		events.POST("", h.Create)
