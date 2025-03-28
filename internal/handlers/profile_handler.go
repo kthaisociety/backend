@@ -25,9 +25,9 @@ func (h *ProfileHandler) Register(r *gin.RouterGroup) {
 
 		// Auth required endpoints
 		profiles.Use(middleware.AuthRequired())
-		profiles.GET("/me", h.GetMyProfile)
-		profiles.PUT("/me", h.UpdateMyProfile)
-		profiles.GET("/:userId", h.GetProfile)
+		profiles.GET("/", h.GetMyProfile)
+		profiles.PUT("/", h.UpdateMyProfile)
+		profiles.DELETE("/", h.DeleteMyProfile)
 
 		// Admin-only endpoints
 		admin := profiles.Group("/admin")
@@ -220,6 +220,17 @@ func (h *ProfileHandler) DeleteProfile(c *gin.Context) {
 	}
 
 	if err := h.db.Delete(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Profile deleted successfully"})
+}
+
+func (h *ProfileHandler) DeleteMyProfile(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	if err := h.db.Where("user_id = ?", userID).Delete(&models.Profile{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
