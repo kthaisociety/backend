@@ -181,6 +181,7 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 		handlers.NewEventHandler(db),
 		auth.NewAuthHandler(db),
 		handlers.NewRegistrationHandler(db),
+		handlers.NewProfileHandler(db),
 	}
 
 	for _, h := range allHandlers {
