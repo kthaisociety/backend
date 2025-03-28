@@ -83,7 +83,7 @@ func (h *ProtectedHandler) UpdateMe(c *gin.Context) {
 	profile.LastName = updateData.LastName
 	profile.Image = updateData.Image
 	profile.University = updateData.University
-	profile.Programme = updateData.Programme
+	profile.Programme = models.StudyProgram(updateData.Programme)
 	profile.GraduationYear = updateData.GraduationYear
 
 	if err := h.DB.Save(&profile).Error; err != nil {
