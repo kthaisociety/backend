@@ -89,7 +89,7 @@ func (h *AlumniHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	var alumni models.Alumni
 	if err := h.db.Delete(&alumni, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Alumni not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Alumni deleted"})
