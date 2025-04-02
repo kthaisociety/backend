@@ -116,6 +116,7 @@ func main() {
 		&models.Event{},
 		&models.Registration{},
 		&models.TeamMember{},
+		&models.Alumni{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
@@ -180,6 +181,7 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 		handlers.NewAuthHandler(db),
 		handlers.NewRegistrationHandler(db),
 		handlers.NewProfileHandler(db),
+		handlers.NewAlumniHandler(db),
 	}
 
 	for _, h := range allHandlers {
