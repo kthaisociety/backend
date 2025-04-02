@@ -119,6 +119,7 @@ func main() {
 		&models.Alumni{},
 		&models.Startup{},
 		&models.Speaker{},
+		&models.Sponsor{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
@@ -186,6 +187,7 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 		handlers.NewAlumniHandler(db),
 		handlers.NewStartupHandler(db),
 		handlers.NewSpeakerHandler(db),
+		handlers.NewSponsorHandler(db),
 	}
 
 	for _, h := range allHandlers {
