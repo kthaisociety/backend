@@ -25,11 +25,10 @@ func (h *TeamMemberHandler) Register(r *gin.RouterGroup) {
 		teamMembers.GET("/:id", h.Get)
 
 		// Admin-only endpoints
-		admin := teamMembers.Group("/admin")
-		admin.Use(middleware.AdminRequired())
-		admin.POST("", h.Create)
-		admin.PUT("/:id", h.Update)
-		admin.DELETE("/:id", h.Delete)
+		teamMembers.Use(middleware.AdminRequired())
+		teamMembers.POST("", h.Create)
+		teamMembers.PUT("/:id", h.Update)
+		teamMembers.DELETE("/:id", h.Delete)
 	}
 }
 
