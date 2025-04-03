@@ -25,11 +25,10 @@ func (h *SponsorHandler) Register(r *gin.RouterGroup) {
 		sponsor.GET("/:id", h.Get)
 
 		// Admin-only endpoints
-		admin := sponsor.Group("/admin")
-		admin.Use(middleware.AdminRequired()) // You'll need to create this middleware
-		admin.POST("", h.Create)
-		admin.PUT("/:id", h.Update)
-		admin.DELETE("/:id", h.Delete)
+		sponsor.Use(middleware.AdminRequired())
+		sponsor.POST("", h.Create)
+		sponsor.PUT("/:id", h.Update)
+		sponsor.DELETE("/:id", h.Delete)
 
 	}
 }

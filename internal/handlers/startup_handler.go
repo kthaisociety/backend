@@ -25,11 +25,10 @@ func (h *StartupHandler) Register(r *gin.RouterGroup) {
 		startup.GET("/:id", h.Get)
 
 		// Admin-only endpoints
-		admin := startup.Group("/admin")
-		admin.Use(middleware.AdminRequired()) // You'll need to create this middleware
-		admin.POST("", h.Create)
-		admin.PUT("/:id", h.Update)
-		admin.DELETE("/:id", h.Delete)
+		startup.Use(middleware.AdminRequired())
+		startup.POST("", h.Create)
+		startup.PUT("/:id", h.Update)
+		startup.DELETE("/:id", h.Delete)
 
 	}
 }

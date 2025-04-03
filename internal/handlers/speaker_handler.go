@@ -25,11 +25,10 @@ func (h *SpeakerHandler) Register(r *gin.RouterGroup) {
 		speaker.GET("/:id", h.Get)
 
 		// Admin-only endpoints
-		admin := speaker.Group("/admin")
-		admin.Use(middleware.AdminRequired()) // You'll need to create this middleware
-		admin.POST("", h.Create)
-		admin.PUT("/:id", h.Update)
-		admin.DELETE("/:id", h.Delete)
+		speaker.Use(middleware.AdminRequired())
+		speaker.POST("", h.Create)
+		speaker.PUT("/:id", h.Update)
+		speaker.DELETE("/:id", h.Delete)
 
 	}
 }

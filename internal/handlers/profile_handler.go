@@ -27,11 +27,10 @@ func (h *ProfileHandler) Register(r *gin.RouterGroup) {
 		profile.POST("/", h.CreateMyProfile)
 
 		// Admin-only endpoints
-		admin := profile.Group("/admin")
-		admin.Use(middleware.AdminRequired())
-		admin.GET("", h.ListAllProfiles)
-		admin.PUT("/:userId", h.UpdateProfile)
-		admin.DELETE("/:userId", h.DeleteProfile)
+		profile.Use(middleware.AdminRequired())
+		profile.GET("", h.ListAllProfiles)
+		profile.PUT("/:userId", h.UpdateProfile)
+		profile.DELETE("/:userId", h.DeleteProfile)
 	}
 }
 

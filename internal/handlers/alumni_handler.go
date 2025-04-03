@@ -25,11 +25,10 @@ func (h *AlumniHandler) Register(r *gin.RouterGroup) {
 		alumni.GET("/:id", h.Get)
 
 		// Admin-only endpoints
-		admin := alumni.Group("/admin")
-		admin.Use(middleware.AdminRequired()) // You'll need to create this middleware
-		admin.POST("", h.Create)
-		admin.PUT("/:id", h.Update)
-		admin.DELETE("/:id", h.Delete)
+		alumni.Use(middleware.AdminRequired())
+		alumni.POST("", h.Create)
+		alumni.PUT("/:id", h.Update)
+		alumni.DELETE("/:id", h.Delete)
 
 	}
 }
