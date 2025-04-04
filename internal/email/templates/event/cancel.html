@@ -1,7 +1,17 @@
-{% extends "email/base.html" %}
-{% load app_tags %}
-{% load i18n %}
+{{define "email_image"}}
+<div style="height: 200px; overflow: hidden; position: relative; text-align: center;">
+    <img src="{{.Event.ImageURL}}" alt="Event image"
+        style="width: 100%; position: absolute; top: 50%; left: 0; transform: translateY(-50%); display: block;" />
+</div>
+{{end}}
 
-{% block email_body %}
-    <p>Your registration to <strong>{{ registration.event.name }}</strong> has been cancelled. We are sorry to hear that and hope to see you in the future!</p>
-{% endblock %}
+{{define "email_message_pre"}}
+<p>Your registration to <strong>{{.Event.Name}}</strong> has been cancelled. We are sorry to hear that and
+    hope to see you in the future!</p>
+{{end}}
+
+{{define "email_button_url"}}{{.URL}}/events{{end}}
+
+{{define "email_button_text"}}View other events{{end}}
+
+{{template "base.html" .}}

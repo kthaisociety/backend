@@ -246,14 +246,28 @@
 
 {{define "email_opening"}}
 {{if .User.Name}}
-<p>Hej, {{.User.Name}}!</p>
+<p>Hello, {{.User.Name}}!</p>
 {{else}}
-<p>Hej!</p>
+<p>Hello!</p>
+{{end}}
+{{end}}
+
+{{define "email_image"}}
+{{if .Event.ImageURL}}
+<div style="height: 200px; overflow: hidden; position: relative; text-align: center; line-height: 0;">
+    <img src="{{.Event.ImageURL}}" alt="Event image"
+        style="width: 100%; position: absolute; top: 50%; left: 0; transform: translateY(-50%); display: block;" />
+</div>
+{{else}}
+
 {{end}}
 {{end}}
 
 {{define "email_body"}}
+
+
 {{template "email_message_pre" .}}
+{{template "email_image" .}}
 <table>
     <tr>
         <td align="center">
@@ -275,6 +289,7 @@
     if this is the result of registering, subscribing or any other action you might think
     that have caused this.</p>
 {{end}}
+
 
 {{define "email_message_post"}}{{end}}
 

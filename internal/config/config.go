@@ -31,6 +31,13 @@ type Config struct {
 	}
 	SessionKey      string
 	DevelopmentMode bool
+	SES             struct {
+		AccessKeyID     string
+		SecretAccessKey string
+		Region          string
+		Sender          string
+		ReplyTo         string
+	}
 }
 
 func LoadConfig() (*Config, error) {
@@ -67,8 +74,24 @@ func LoadConfig() (*Config, error) {
 
 	// Log OAuth configuration status
 	if cfg.OAuth.GoogleClientID == "" || cfg.OAuth.GoogleClientSecret == "" {
-		log.Fatalf("Warning: Google OAuth credentials not configured. OAuth functionality will be disabled.")
+		log.Printf("Warning: Google OAuth credentials not configured. OAuth functionality will be disabled.")
+		//os.Exit(1) // Removed OAuth as a requirement, for testing
+	}
+
+	// Amazon SES config
+	cfg.SES.AccessKeyID = getEnv("SES_ACCESS_KEY_ID", "")
+	cfg.SES.SecretAccessKey = getEnv("SES_SECRET_ACCESS_KEY", "")
+	cfg.SES.Region = getEnv("SES_REGION", "eu-north-1")
+	cfg.SES.Sender = getEnv("SES_SENDER", "")
+	cfg.SES.ReplyTo = getEnv("SES_REPLY_TO", cfg.SES.Sender)
+
+	if cfg.SES.AccessKeyID == "" || cfg.SES.SecretAccessKey == "" {
+		log.Fatalf("Warning: Amazon SES credentials not configured. Email functionality will be disabled.")
 		os.Exit(1)
+	}
+
+	if cfg.SES.Sender == "" {
+		log.Println("Warning: Sender email is not set.")
 	}
 
 	return cfg, nil
