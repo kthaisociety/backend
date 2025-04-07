@@ -1,6 +1,10 @@
 package mailchimp
 
-import "fmt"
+import (
+	"backend/internal/models"
+	"fmt"
+	"net/http"
+)
 
 const (
 	main_path   = "/lists/%s/members"
@@ -89,6 +93,36 @@ func (api *MailchimpAPI) DeleteMember(id *string) error {
 	err := api.Request(Post, fmt.Sprintf(delete_path, api.ListId, *id), nil, nil, nil)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (api *MailchimpAPI) SubscribeMember(profile *models.Profile) error {
+	// Check if user is subscribed to the mailing list
+	_, memberResErr := api.GetMember(&profile.Email)
+	if memberResErr != nil {
+		serr, ok := memberResErr.(*MailchimpAPIError)
+		if ok && serr.Status == http.StatusNotFound {
+			// User is not subscribed, add it to the mailing list
+			req := &MemberRequest{
+				Email:  profile.Email,
+				Status: Subscribed,
+				MergeFields: MergeFields{
+					FirstName:      profile.FirstName,
+					LastName:       profile.LastName,
+					Programme:      string(profile.Programme),
+					GraduationYear: profile.GraduationYear,
+				},
+			}
+
+			_, addErr := api.AddMember(req)
+			if addErr != nil {
+				return addErr
+			}
+		} else {
+			return memberResErr
+		}
 	}
 
 	return nil

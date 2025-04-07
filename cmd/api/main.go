@@ -186,7 +186,7 @@ func setupRoutes(r *gin.Engine, db *gorm.DB, mailchimpApi *mailchimp.MailchimpAP
 		handlers.NewEventHandler(db),
 		handlers.NewAuthHandler(db, mailchimpApi),
 		handlers.NewRegistrationHandler(db),
-		handlers.NewProfileHandler(db),
+		handlers.NewProfileHandler(db, mailchimpApi),
 	}
 
 	for _, h := range allHandlers {
