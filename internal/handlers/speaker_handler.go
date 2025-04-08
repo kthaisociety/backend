@@ -20,7 +20,6 @@ func NewSpeakerHandler(db *gorm.DB) *SpeakerHandler {
 func (h *SpeakerHandler) Register(r *gin.RouterGroup) {
 	speaker := r.Group("/speaker")
 	{
-		// Public endpoints (require auth)
 		speaker.GET("", h.List)
 		speaker.GET("/:id", h.Get)
 
@@ -46,7 +45,7 @@ func (h *SpeakerHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	var speaker models.Speaker
 	if err := h.db.First(&speaker, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "speaker not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, speaker)
@@ -70,7 +69,7 @@ func (h *SpeakerHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 	var speaker models.Speaker
 	if err := h.db.First(&speaker, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Speaker not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if err := c.ShouldBindJSON(&speaker); err != nil {
@@ -91,5 +90,5 @@ func (h *SpeakerHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Speaker deleted"})
+	c.JSON(http.StatusNoContent, gin.H{"message": "Speaker deleted"})
 }

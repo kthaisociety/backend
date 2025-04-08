@@ -20,7 +20,6 @@ func NewAlumniHandler(db *gorm.DB) *AlumniHandler {
 func (h *AlumniHandler) Register(r *gin.RouterGroup) {
 	alumni := r.Group("/alumni")
 	{
-		// Public endpoints (require auth)
 		alumni.GET("", h.List)
 		alumni.GET("/:id", h.Get)
 
@@ -46,7 +45,7 @@ func (h *AlumniHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	var alumni models.Alumni
 	if err := h.db.First(&alumni, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Alumni not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, alumni)
@@ -70,7 +69,7 @@ func (h *AlumniHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 	var alumni models.Alumni
 	if err := h.db.First(&alumni, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Alumni not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if err := c.ShouldBindJSON(&alumni); err != nil {
@@ -91,5 +90,5 @@ func (h *AlumniHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Alumni deleted"})
+	c.JSON(http.StatusNoContent, gin.H{"message": "Alumni deleted"})
 }

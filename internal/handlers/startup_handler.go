@@ -20,7 +20,6 @@ func NewStartupHandler(db *gorm.DB) *StartupHandler {
 func (h *StartupHandler) Register(r *gin.RouterGroup) {
 	startup := r.Group("/startup")
 	{
-		// Public endpoints (require auth)
 		startup.GET("", h.List)
 		startup.GET("/:id", h.Get)
 
@@ -46,7 +45,7 @@ func (h *StartupHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	var startup models.Startup
 	if err := h.db.First(&startup, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "startup not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, startup)
@@ -70,7 +69,7 @@ func (h *StartupHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 	var startup models.Startup
 	if err := h.db.First(&startup, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Startup not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if err := c.ShouldBindJSON(&startup); err != nil {
@@ -91,5 +90,5 @@ func (h *StartupHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Startup deleted"})
+	c.JSON(http.StatusNoContent, gin.H{"message": "Startup deleted"})
 }

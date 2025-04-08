@@ -20,7 +20,6 @@ func NewSponsorHandler(db *gorm.DB) *SponsorHandler {
 func (h *SponsorHandler) Register(r *gin.RouterGroup) {
 	sponsor := r.Group("/sponsor")
 	{
-		// Public endpoints (require auth)
 		sponsor.GET("", h.List)
 		sponsor.GET("/:id", h.Get)
 
@@ -46,7 +45,7 @@ func (h *SponsorHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	var sponsor models.Sponsor
 	if err := h.db.First(&sponsor, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "sponsor not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, sponsor)
@@ -70,7 +69,7 @@ func (h *SponsorHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 	var sponsor models.Sponsor
 	if err := h.db.First(&sponsor, id).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sponsor not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if err := c.ShouldBindJSON(&sponsor); err != nil {
@@ -91,5 +90,5 @@ func (h *SponsorHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Sponsor deleted"})
+	c.JSON(http.StatusNoContent, gin.H{"message": "Sponsor deleted"})
 }
