@@ -20,7 +20,6 @@ func NewTeamMemberHandler(db *gorm.DB) *TeamMemberHandler {
 func (h *TeamMemberHandler) Register(r *gin.RouterGroup) {
 	teamMembers := r.Group("/team-members")
 	{
-		// Public endpoints
 		teamMembers.GET("", h.List)
 		teamMembers.GET("/:id", h.Get)
 
@@ -58,7 +57,7 @@ func (h *TeamMemberHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	var teamMember models.TeamMember
 	if err := h.db.First(&teamMember, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Team member not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, teamMember)
@@ -68,7 +67,7 @@ func (h *TeamMemberHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 	var teamMember models.TeamMember
 	if err := h.db.First(&teamMember, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Team member not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -88,7 +87,7 @@ func (h *TeamMemberHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	var teamMember models.TeamMember
 	if err := h.db.First(&teamMember, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Team member not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
