@@ -32,12 +32,11 @@ func (h *RegistrationHandler) Register(r *gin.RouterGroup) {
 		registrations.PUT("/:id/cancel", h.CancelRegistration)
 
 		// Admin-only endpoints
-		admin := registrations.Group("/admin")
-		admin.Use(middleware.AdminRequired()) // You'll need to create this middleware
-		admin.PUT("/:id", h.Update)
-		admin.DELETE("/:id", h.Delete)
-		admin.PUT("/:id/status", h.UpdateStatus)
-		admin.PUT("/:id/attended", h.MarkAttendance)
+		registrations.Use(middleware.AdminRequired())
+		registrations.PUT("/:id", h.Update)
+		registrations.DELETE("/:id", h.Delete)
+		registrations.PUT("/:id/status", h.UpdateStatus)
+		registrations.PUT("/:id/attended", h.MarkAttendance)
 	}
 }
 
