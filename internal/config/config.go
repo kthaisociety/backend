@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -22,21 +23,27 @@ type Config struct {
 		GoogleClientID     string
 		GoogleClientSecret string
 	}
-	FrontendURL string
-	BackendURL  string
-	Redis       struct {
+	AllowedOrigins []string
+	BackendURL     string
+	Redis          struct {
 		Host     string
 		Port     string
 		Password string
 	}
 	SessionKey      string
 	DevelopmentMode bool
+
 	SES             struct {
 		AccessKeyID     string
 		SecretAccessKey string
 		Region          string
 		Sender          string
 		ReplyTo         string
+
+	Mailchimp       struct {
+		APIKey string
+		User   string
+		ListID string
 	}
 }
 
@@ -57,9 +64,22 @@ func LoadConfig() (*Config, error) {
 	cfg.Redis.Port = getEnv("REDIS_PORT", "6379")
 	cfg.Redis.Password = getEnv("REDIS_PASSWORD", "")
 
-	// Frontend and Backend URLs
-	cfg.FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
+	// Load allowed origins from environment variable
+	// Format: comma-separated list of origins
+	allowedOriginsStr := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
+	cfg.AllowedOrigins = strings.Split(allowedOriginsStr, ",")
+
+	// Trim spaces from each origin
+	for i, origin := range cfg.AllowedOrigins {
+		cfg.AllowedOrigins[i] = strings.TrimSpace(origin)
+	}
+
 	cfg.BackendURL = getEnv("BACKEND_URL", "http://localhost:8080")
+
+	// Mailchimp config
+	cfg.Mailchimp.APIKey = getEnv("MAILCHIMP_API_KEY", "")
+	cfg.Mailchimp.User = getEnv("MAILCHIMP_USER", "")
+	cfg.Mailchimp.ListID = getEnv("MAILCHIMP_LIST_ID", "")
 
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
