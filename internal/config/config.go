@@ -33,14 +33,15 @@ type Config struct {
 	SessionKey      string
 	DevelopmentMode bool
 
-	SES             struct {
+	SES struct {
 		AccessKeyID     string
 		SecretAccessKey string
 		Region          string
 		Sender          string
 		ReplyTo         string
+	}
 
-	Mailchimp       struct {
+	Mailchimp struct {
 		APIKey string
 		User   string
 		ListID string
