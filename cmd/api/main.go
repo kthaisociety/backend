@@ -11,6 +11,7 @@ import (
 
 	"backend/internal/config"
 	"backend/internal/handlers"
+	"backend/internal/mailchimp"
 	"backend/internal/models"
 
 	"github.com/gin-contrib/cors"
@@ -159,14 +160,20 @@ func main() {
 
 	r.Use(sessions.Sessions("kthais_session", store))
 
+	// Initialize mailchimp client
+	mailchimpApi, err := mailchimp.InitMailchimpApi(cfg)
+	if err != nil {
+		log.Fatal("Failed to initialize mailchimp client:", err)
+	}
+
 	// Initialize handlers
-	setupRoutes(r, db)
+	setupRoutes(r, db, mailchimpApi)
 
 	// Run the server
 	r.Run(":" + cfg.Server.Port)
 }
 
-func setupRoutes(r *gin.Engine, db *gorm.DB) {
+func setupRoutes(r *gin.Engine, db *gorm.DB, mailchimpApi *mailchimp.MailchimpAPI) {
 	api := r.Group("/api/v1")
 
 	// Public routes
@@ -177,9 +184,9 @@ func setupRoutes(r *gin.Engine, db *gorm.DB) {
 	// Register all handlers
 	allHandlers := []handlers.Handler{
 		handlers.NewEventHandler(db),
-		handlers.NewAuthHandler(db),
+		handlers.NewAuthHandler(db, mailchimpApi),
 		handlers.NewRegistrationHandler(db),
-		handlers.NewProfileHandler(db),
+		handlers.NewProfileHandler(db, mailchimpApi),
 	}
 
 	for _, h := range allHandlers {
