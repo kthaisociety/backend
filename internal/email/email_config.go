@@ -10,11 +10,10 @@ type EmailConfig struct {
 	PrivacyAndCookiesURL  string
 }
 
-// TODO: Correct the URLs and email
 var DefaultEmailConfig = EmailConfig{
 	AppName:               "KTHAIS",
 	AppDescription:        "Welcome to KTHAIS",
-	AppEmailContact:       "jack@gugolz.se",
+	AppEmailContact:       "contact@kthais.com",
 	StaticURL:             "https://kthais.com/static",
 	LegalNoticeURL:        "https://kthais.com/page/legal/legal-notice/",
 	TermsAndConditionsURL: "https://kthais.com/page/legal/terms-and-conditions/",
