@@ -40,6 +40,7 @@ type Event struct {
 	EndDate            time.Time          `json:"end_date"`
 	CreatedBy          uint               `json:"created_by"`
 	User               User               `gorm:"foreignKey:CreatedBy" json:"user"`
+	RequiresApproval   *bool              `gorm:"not null;default:true" json:"requires_approval"`
 	CreatedAt          time.Time          `json:"created_at"`
 	UpdatedAt          time.Time          `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt     `gorm:"index" json:"-"`

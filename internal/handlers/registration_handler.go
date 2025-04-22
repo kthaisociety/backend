@@ -142,8 +142,13 @@ func (h *RegistrationHandler) RegisterForEvent(c *gin.Context) {
 	registration := models.Registration{
 		EventID:  uint(event.ID),
 		UserID:   userID,
-		Status:   models.RegistrationStatusPending,
+		Status:   models.RegistrationStatusPending, // Default to pending
 		Attended: false,
+	}
+
+	// If event doesn't require approval, auto-approve the registration
+	if event.RequiresApproval == nil || !*event.RequiresApproval {
+		registration.Status = models.RegistrationStatusApproved
 	}
 
 	if err := h.db.Create(&registration).Error; err != nil {
