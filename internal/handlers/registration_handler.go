@@ -103,10 +103,19 @@ func (h *RegistrationHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Registration deleted"})
 }
 
-// RegisterForEvent allows a user to register for an event
+type RegistrationRequest struct {
+	EventID             uint                  `json:"event_id" binding:"required"`
+	DietaryRestrictions string                `json:"dietary_restrictions"`
+	Answers             []CustomAnswerRequest `json:"answers"`
+}
+
+type CustomAnswerRequest struct {
+	QuestionID uint   `json:"question_id" binding:"required"`
+	Answer     string `json:"answer" binding:"required"`
+}
+
 func (h *RegistrationHandler) RegisterForEvent(c *gin.Context) {
 	eventID := c.Param("eventId")
-
 	userID, _, err := h.getUserData(c)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user data"})
@@ -138,6 +147,13 @@ func (h *RegistrationHandler) RegisterForEvent(c *gin.Context) {
 		return
 	}
 
+	// Parse request body for custom answers
+	var req RegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	// Create new registration
 	registration := models.Registration{
 		EventID:  uint(event.ID),
@@ -151,8 +167,36 @@ func (h *RegistrationHandler) RegisterForEvent(c *gin.Context) {
 		registration.Status = models.RegistrationStatusApproved
 	}
 
-	if err := h.db.Create(&registration).Error; err != nil {
+	// Start transaction for registration and answers
+	tx := h.db.Begin()
+
+	// Create registration
+	if err := tx.Create(&registration).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create custom answers if provided
+	if len(req.Answers) > 0 {
+		for _, answerReq := range req.Answers {
+			answer := models.CustomAnswer{
+				RegistrationID: registration.ID,
+				QuestionID:     answerReq.QuestionID,
+				Answer:         answerReq.Answer,
+			}
+
+			if err := tx.Create(&answer).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save custom answers"})
+				return
+			}
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to complete registration"})
 		return
 	}
 

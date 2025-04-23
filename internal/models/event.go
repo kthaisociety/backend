@@ -26,6 +26,27 @@ const (
 	// TODO: add more registration methods
 )
 
+type QuestionType string
+
+const (
+	QuestionTypeText     QuestionType = "text"
+	QuestionTypeNumber   QuestionType = "number"
+	QuestionTypeSelect   QuestionType = "select"
+	QuestionTypeCheckbox QuestionType = "checkbox"
+)
+
+type CustomQuestion struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	EventID   uint           `gorm:"not null" json:"event_id"`
+	Event     Event          `gorm:"foreignKey:EventID" json:"event"`
+	Question  string         `gorm:"not null" json:"question"`
+	Type      QuestionType   `gorm:"not null" json:"type"`
+	Required  bool           `gorm:"not null;default:false" json:"required"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
 type Event struct {
 	ID                 uint               `gorm:"primarykey" json:"id"`
 	Title              string             `gorm:"not null" json:"title"`
@@ -41,6 +62,7 @@ type Event struct {
 	CreatedBy          uint               `json:"created_by"`
 	User               User               `gorm:"foreignKey:CreatedBy" json:"user"`
 	RequiresApproval   *bool              `gorm:"not null;default:true" json:"requires_approval"`
+	CustomQuestions    []CustomQuestion   `gorm:"foreignKey:EventID" json:"custom_questions"`
 	CreatedAt          time.Time          `json:"created_at"`
 	UpdatedAt          time.Time          `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt     `gorm:"index" json:"-"`

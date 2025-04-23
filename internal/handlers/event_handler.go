@@ -53,7 +53,7 @@ func (h *EventHandler) Create(c *gin.Context) {
 
 func (h *EventHandler) Get(c *gin.Context) {
 	var event models.Event
-	if err := h.db.First(&event, c.Param("id")).Error; err != nil {
+	if err := h.db.Preload("CustomQuestions").First(&event, c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
 		return
 	}
