@@ -277,28 +277,19 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 			redirectWithError(c, "Failed to create account")
 			return
 		}
-	} else {
+	} else if result.Error != nil {
+		// Database error (not "record not found")
 		log.Printf("Database error: %v", result.Error)
 		redirectWithError(c, "Database error")
 		return
 	}
+	// If no error, user already exists and was loaded successfully
 
+	// Check if profile exists
 	var profile models.Profile
-	if err := h.db.Where("user_id = ?", user.ID).First(&profile).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// Set session
-			session = sessions.Default(c)
-			session.Clear()
-			session.Set("user_id", user.ID)
-			session.Set("authenticated", true)
+	profileExists := h.db.Where("user_id = ?", user.ID).First(&profile).Error == nil
 
-			// Redirect to frontend
-			dashboardURL := fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
-			c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
-		}
-	}
-
-	// Set session
+	// Set session for the user
 	session = sessions.Default(c)
 	session.Clear()
 	session.Set("user_id", user.ID)
@@ -310,8 +301,16 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Redirect to frontend
-	dashboardURL := fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
+	// Redirect based on whether profile exists
+	var dashboardURL string
+	if profileExists {
+		// Profile exists, redirect to dashboard
+		dashboardURL = fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
+	} else {
+		// Profile doesn't exist, redirect to complete registration
+		dashboardURL = fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
+	}
+
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 
