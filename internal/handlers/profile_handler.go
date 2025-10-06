@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"backend/internal/mailchimp"
 	"backend/internal/middleware"
 	"backend/internal/models"
 	"net/http"
@@ -10,11 +11,12 @@ import (
 )
 
 type ProfileHandler struct {
-	db *gorm.DB
+	db        *gorm.DB
+	mailchimp *mailchimp.MailchimpAPI
 }
 
-func NewProfileHandler(db *gorm.DB) *ProfileHandler {
-	return &ProfileHandler{db: db}
+func NewProfileHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI) *ProfileHandler {
+	return &ProfileHandler{db: db, mailchimp: mailchimp}
 }
 
 func (h *ProfileHandler) Register(r *gin.RouterGroup) {
@@ -28,7 +30,7 @@ func (h *ProfileHandler) Register(r *gin.RouterGroup) {
 
 		// Admin-only endpoints
 		admin := profile.Group("/admin")
-		admin.Use(middleware.AdminRequired())
+		admin.Use(middleware.AdminRequired(h.db))
 		admin.GET("", h.ListAllProfiles)
 		admin.PUT("/:userId", h.UpdateProfile)
 		admin.DELETE("/:userId", h.DeleteProfile)
@@ -104,6 +106,22 @@ func (h *ProfileHandler) UpdateMyProfile(c *gin.Context) {
 			return
 		}
 
+		// Update member in Mailchimp
+		memberRequest := mailchimp.MemberRequest{
+			Email:  existingProfile.Email,
+			Status: mailchimp.Subscribed,
+			MergeFields: mailchimp.MergeFields{
+				FirstName:      existingProfile.FirstName,
+				LastName:       existingProfile.LastName,
+				Programme:      string(existingProfile.Programme),
+				GraduationYear: existingProfile.GraduationYear,
+			},
+		}
+		if _, err := h.mailchimp.UpdateMember(&existingProfile.Email, &memberRequest); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
 		c.JSON(http.StatusOK, existingProfile)
 		return
 	}
@@ -122,6 +140,12 @@ func (h *ProfileHandler) UpdateMyProfile(c *gin.Context) {
 	}
 
 	if err := h.db.Create(&newProfile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Add member to Mailchimp
+	if err := h.mailchimp.SubscribeMember(&newProfile); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -179,6 +203,12 @@ func (h *ProfileHandler) CreateMyProfile(c *gin.Context) {
 		return
 	}
 
+	// Add member to Mailchimp
+	if err := h.mailchimp.SubscribeMember(&newProfile); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusCreated, newProfile)
 }
 
@@ -223,6 +253,22 @@ func (h *ProfileHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	if err := h.db.Save(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update member in Mailchimp
+	memberRequest := mailchimp.MemberRequest{
+		Email:  profile.Email,
+		Status: mailchimp.Subscribed,
+		MergeFields: mailchimp.MergeFields{
+			FirstName:      profile.FirstName,
+			LastName:       profile.LastName,
+			Programme:      string(profile.Programme),
+			GraduationYear: profile.GraduationYear,
+		},
+	}
+	if _, err := h.mailchimp.UpdateMember(&profile.Email, &memberRequest); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

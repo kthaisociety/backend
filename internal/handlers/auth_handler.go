@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"backend/internal/mailchimp"
 	"backend/internal/models"
 
 	"backend/internal/config"
@@ -23,11 +24,12 @@ import (
 
 // Add this line to ensure AuthHandler implements Handler interface
 type AuthHandler struct {
-	db *gorm.DB
+	db        *gorm.DB
+	mailchimp *mailchimp.MailchimpAPI
 }
 
-func NewAuthHandler(db *gorm.DB) *AuthHandler {
-	return &AuthHandler{db: db}
+func NewAuthHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI) *AuthHandler {
+	return &AuthHandler{db: db, mailchimp: mailchimp}
 }
 
 // Update Register method to match the Handler interface
