@@ -353,7 +353,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		// Profile doesn't exist, redirect to complete registration
 		dashboardURL = fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
 	}
-
+	c.SetCookie("jwt", "test123", 3600, "/", "localhost:3000", false, false)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 

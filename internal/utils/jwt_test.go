@@ -48,3 +48,9 @@ func TestParseAndVerify(t *testing.T) {
 		t.Errorf("No error\n")
 	}
 }
+
+func TestJWTCreate(t *testing.T) {
+	key := "testkey123456"
+	newJwt := WriteJWT("vivienne@kthais.com", []string{"user", "admin", "queen"}, key, 15)
+	log.Printf("JWT Generated: %v\n", newJwt)
+}

@@ -8,6 +8,8 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -98,4 +100,32 @@ func GetGoogleJWKSKey() *KeyList {
 		log.Printf("Error decoding json%v\n", err)
 	}
 	return &data
+}
+
+func WriteJWT(email string, roles []string, key string, validMinutes int) string {
+	type UserClaims struct {
+		Email string `json:"email"`
+		Roles string `json:"roles"`
+		jwt.RegisteredClaims
+	}
+
+	// Create claims with multiple fields populated
+	claims := UserClaims{
+		email,
+		strings.Join(roles, ","),
+		jwt.RegisteredClaims{
+			// A usual scenario is to set the expiration time relative to the current time
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(validMinutes) * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "KTHAIS",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, err := token.SignedString([]byte(key))
+	if err != nil {
+		log.Printf("Failed to generate JWT token: %v\n", err)
+	}
+	return ss
 }
