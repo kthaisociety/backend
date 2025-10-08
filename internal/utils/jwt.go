@@ -23,7 +23,7 @@ func ParseJWT(jwtIn string) (*jwt.Token, error) {
 	return token, err
 }
 
-func getKeyById(kl KeyList, id string) *JwksKey {
+func getKeyById(kl *KeyList, id string) *JwksKey {
 	for _, key := range kl.Keys {
 		if key.Kid == id {
 			return &key
@@ -40,7 +40,7 @@ func keyfunc(token *jwt.Token) (any, error) {
 
 	klist := GetGoogleJWKSKey()
 
-	key := getKeyById(*klist, kid)
+	key := getKeyById(klist, kid)
 	if key == nil {
 		return nil, fmt.Errorf("no matching key found")
 	}
@@ -64,6 +64,12 @@ func ParseAndVerify(jwtIn string) (bool, *jwt.Token) {
 		log.Printf("Error parsing encrypted token")
 	}
 	return token.Valid, token
+}
+
+func GetClaims(token *jwt.Token) jwt.MapClaims {
+	claims, _ := token.Claims.(jwt.MapClaims)
+	return claims
+
 }
 
 type JwksKey struct {
