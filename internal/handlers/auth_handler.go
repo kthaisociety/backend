@@ -226,6 +226,9 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		redirectWithError(c, fmt.Sprintf("Failed to authorize: %v", err))
 		return
 	}
+	gSession := gothSession.(*google.Session)
+	log.Printf("Google ID: %v\n", gSession.IDToken)
+	log.Printf("Google Access: %v\n", gSession.AccessToken)
 
 	gothUser, err := provider.FetchUser(gothSession)
 	if err != nil {
@@ -234,8 +237,8 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Google User Data: %+v", gothUser)
-	log.Printf("Raw Data: %+v", gothUser.RawData)
+	// log.Printf("Google User Data: %+v", gothUser)
+	// log.Printf("Raw Data: %+v", gothUser.RawData)
 
 	// Extract name from RawData
 	var firstName, lastName string
