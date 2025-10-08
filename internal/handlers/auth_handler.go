@@ -25,12 +25,13 @@ import (
 
 // Add this line to ensure AuthHandler implements Handler interface
 type AuthHandler struct {
-	db        *gorm.DB
-	mailchimp *mailchimp.MailchimpAPI
+	db            *gorm.DB
+	mailchimp     *mailchimp.MailchimpAPI
+	jwtSigningKey string
 }
 
-func NewAuthHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI) *AuthHandler {
-	return &AuthHandler{db: db, mailchimp: mailchimp}
+func NewAuthHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI, skey string) *AuthHandler {
+	return &AuthHandler{db: db, mailchimp: mailchimp, jwtSigningKey: skey}
 }
 
 // Update Register method to match the Handler interface
@@ -229,7 +230,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 	gSession := gothSession.(*google.Session)
 	// parse token here
-	valid, token := utils.ParseAndVerify(gSession.IDToken)
+	valid, token := utils.ParseAndVerifyGoogle(gSession.IDToken)
 	if token == nil {
 		log.Printf("Error parsing google jwt: %v\n", gSession.IDToken)
 	}
@@ -268,42 +269,6 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 			}
 		}
 	}
-	// gothUser, err := provider.FetchUser(gothSession)
-	// if err != nil {
-	// 	log.Printf("Failed to fetch user: %v", err)
-	// 	redirectWithError(c, "Failed to fetch user data")
-	// 	return
-	// }
-
-	// log.Printf("Google User Data: %+v", gothUser)
-	// log.Printf("Raw Data: %+v", gothUser.RawData)
-
-	// Extract name from RawData
-	// var firstName, lastName string
-	// if given, ok := gothUser.RawData["given_name"].(string); ok {
-	// 	firstName = given
-	// }
-	// if family, ok := gothUser.RawData["family_name"].(string); ok {
-	// 	lastName = family
-	// }
-
-	// If given_name/family_name not found, try to parse from Name
-	// if firstName == "" || lastName == "" && gothUser.Name != "" {
-	// 	names := strings.Split(gothUser.Name, " ")
-	// 	if len(names) >= 2 {
-	// 		if firstName == "" {
-	// 			firstName = names[0]
-	// 		}
-	// 		if lastName == "" {
-	// 			lastName = strings.Join(names[1:], " ")
-	// 		}
-	// 	} else if len(names) == 1 {
-	// 		if firstName == "" {
-	// 			firstName = names[0]
-	// 		}
-	// 	}
-	// }
-
 	// Check if user exists
 	var user models.User
 	result := h.db.Where("email = ?", email).First(&user)
@@ -353,7 +318,10 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		// Profile doesn't exist, redirect to complete registration
 		dashboardURL = fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
 	}
-	c.SetCookie("jwt", "test123", 3600, "/", "localhost:3000", false, false)
+	// create JWT token with user data
+	// obviously this is insecure and should be replaced with an env variable
+	authJwt := utils.WriteJWT(email, []string{"user"}, h.jwtSigningKey, 15)
+	c.SetCookie("jwt", authJwt, 3600, "/", "localhost:3000", false, false)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 

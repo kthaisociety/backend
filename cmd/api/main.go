@@ -167,13 +167,13 @@ func main() {
 	}
 
 	// Initialize handlers
-	setupRoutes(r, db, mailchimpApi)
+	setupRoutes(r, db, mailchimpApi, cfg)
 
 	// Run the server
 	r.Run(":" + cfg.Server.Port)
 }
 
-func setupRoutes(r *gin.Engine, db *gorm.DB, mailchimpApi *mailchimp.MailchimpAPI) {
+func setupRoutes(r *gin.Engine, db *gorm.DB, mailchimpApi *mailchimp.MailchimpAPI, cfg *config.Config) {
 	api := r.Group("/api/v1")
 
 	// Public routes
@@ -184,9 +184,9 @@ func setupRoutes(r *gin.Engine, db *gorm.DB, mailchimpApi *mailchimp.MailchimpAP
 	// Register all handlers
 	allHandlers := []handlers.Handler{
 		handlers.NewEventHandler(db),
-		handlers.NewAuthHandler(db, mailchimpApi),
-		handlers.NewRegistrationHandler(db),
-		handlers.NewProfileHandler(db, mailchimpApi),
+		handlers.NewAuthHandler(db, mailchimpApi, cfg.JwtSigningKey),
+		handlers.NewRegistrationHandler(db, cfg),
+		handlers.NewProfileHandler(db, mailchimpApi, cfg),
 	}
 
 	for _, h := range allHandlers {

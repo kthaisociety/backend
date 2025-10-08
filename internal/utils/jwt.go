@@ -58,12 +58,24 @@ func keyfunc(token *jwt.Token) (any, error) {
 	return &rsa.PublicKey{N: n, E: e}, nil
 }
 
-func ParseAndVerify(jwtIn string) (bool, *jwt.Token) {
+func ParseAndVerifyGoogle(jwtIn string) (bool, *jwt.Token) {
 	jwtParser := jwt.NewParser()
 
 	token, err := jwtParser.Parse(jwtIn, keyfunc)
 	if err != nil {
 		log.Printf("Error parsing encrypted token")
+	}
+	return token.Valid, token
+}
+
+func ParseAndVerify(jwtIn string, skey string) (bool, *jwt.Token) {
+	jwtParser := jwt.NewParser()
+	kf := func(token *jwt.Token) (any, error) {
+		return []byte(skey), nil
+	}
+	token, err := jwtParser.Parse(jwtIn, kf)
+	if err != nil {
+		log.Printf("Error parsing encrypted token %v\n", err)
 	}
 	return token.Valid, token
 }

@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"backend/internal/config"
 	"backend/internal/models"
+	"backend/internal/utils"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
@@ -20,6 +22,26 @@ func AuthRequired() gin.HandlerFunc {
 		}
 		c.Set("user_id", userID)
 		c.Next()
+	}
+}
+
+func AuthRequiredJWT(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, cookie := range c.Request.Cookies() {
+			if cookie.Name == "jwt" {
+				valid, _ := utils.ParseAndVerify(cookie.Value, cfg.JwtSigningKey)
+				if valid {
+					c.Next()
+					return
+				} else {
+					c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+					c.Abort()
+				}
+			}
+		}
+		// no jwt, not authorized
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.Abort()
 	}
 }
 

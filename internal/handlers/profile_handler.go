@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"backend/internal/config"
 	"backend/internal/mailchimp"
 	"backend/internal/middleware"
 	"backend/internal/models"
@@ -13,17 +14,18 @@ import (
 type ProfileHandler struct {
 	db        *gorm.DB
 	mailchimp *mailchimp.MailchimpAPI
+	cfg       *config.Config
 }
 
-func NewProfileHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI) *ProfileHandler {
-	return &ProfileHandler{db: db, mailchimp: mailchimp}
+func NewProfileHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI, cfg *config.Config) *ProfileHandler {
+	return &ProfileHandler{db: db, mailchimp: mailchimp, cfg: cfg}
 }
 
 func (h *ProfileHandler) Register(r *gin.RouterGroup) {
 	profile := r.Group("/profile")
 	{
 		// Auth required endpoints
-		profile.Use(middleware.AuthRequired())
+		profile.Use(middleware.AuthRequiredJWT(h.cfg))
 		profile.GET("/", h.GetMyProfile)
 		profile.PUT("/", h.UpdateMyProfile)
 		profile.POST("/", h.CreateMyProfile)

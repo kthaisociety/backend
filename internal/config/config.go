@@ -37,6 +37,7 @@ type Config struct {
 		User   string
 		ListID string
 	}
+	JwtSigningKey string
 }
 
 func LoadConfig() (*Config, error) {
@@ -79,6 +80,8 @@ func LoadConfig() (*Config, error) {
 
 	cfg.SessionKey = getEnv("SESSION_KEY", "")
 	cfg.DevelopmentMode = getEnv("DEVELOPMENT", "true") == "true"
+
+	cfg.JwtSigningKey = getEnv("JWTSigningKey", "test1234566")
 
 	// Debug OAuth configuration
 	fmt.Printf("Google Client ID: %s\n", maskString(cfg.OAuth.GoogleClientID))

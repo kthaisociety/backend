@@ -27,7 +27,7 @@ func TestKeyFetch(t *testing.T) {
 	GetGoogleJWKSKey()
 }
 
-func TestParseAndVerify(t *testing.T) {
+func TestParseAndVerifyGoogle(t *testing.T) {
 	filename := "google.jwt"
 	f, _ := os.Open(filename)
 	reader := bufio.NewReader(f)
@@ -35,7 +35,7 @@ func TestParseAndVerify(t *testing.T) {
 	if isPrefix {
 		log.Println("Long JWT")
 	}
-	valid, token := ParseAndVerify(string(test_jwt))
+	valid, token := ParseAndVerifyGoogle(string(test_jwt))
 	if !valid {
 		t.Errorf("Token not valid!!")
 	} else {
@@ -46,6 +46,15 @@ func TestParseAndVerify(t *testing.T) {
 	}
 	if false {
 		t.Errorf("No error\n")
+	}
+}
+
+func TestParseAndVerify(t *testing.T) {
+	key := "testkey123456"
+	newJwt := WriteJWT("vivienne@kthais.com", []string{"user", "admin", "queen"}, key, 15)
+	valid, _ := ParseAndVerify(newJwt, key)
+	if !valid {
+		t.Errorf("Could not validate JWT: \n")
 	}
 }
 

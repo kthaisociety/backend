@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"backend/internal/config"
 	"backend/internal/middleware"
 	"backend/internal/models"
 	"net/http"
@@ -10,18 +11,19 @@ import (
 )
 
 type RegistrationHandler struct {
-	db *gorm.DB
+	db  *gorm.DB
+	cfg *config.Config
 }
 
-func NewRegistrationHandler(db *gorm.DB) *RegistrationHandler {
-	return &RegistrationHandler{db: db}
+func NewRegistrationHandler(db *gorm.DB, cfg *config.Config) *RegistrationHandler {
+	return &RegistrationHandler{db: db, cfg: cfg}
 }
 
 func (h *RegistrationHandler) Register(r *gin.RouterGroup) {
 	registrations := r.Group("/registrations")
 	{
 		// Public endpoints (require auth)
-		registrations.Use(middleware.AuthRequired())
+		registrations.Use(middleware.AuthRequiredJWT(h.cfg))
 		registrations.Use(middleware.RegisteredUserRequired(h.db))
 		registrations.GET("", h.List)
 		registrations.POST("", h.Create)
