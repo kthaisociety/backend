@@ -82,6 +82,7 @@ func ParseAndVerify(jwtIn string, skey string) (bool, *jwt.Token) {
 	return token.Valid, token
 }
 
+<<<<<<< HEAD
 func GetJWTString(c *gin.Context) string {
 	for _, cookie := range c.Request.Cookies() {
 		if cookie.Name == "jwt" {
@@ -101,6 +102,8 @@ func GetJWT(c *gin.Context) *jwt.Token {
 	return nil
 }
 
+=======
+>>>>>>> looks like jwt pipeline is working
 func GetClaims(token *jwt.Token) jwt.MapClaims {
 	claims, _ := token.Claims.(jwt.MapClaims)
 	return claims

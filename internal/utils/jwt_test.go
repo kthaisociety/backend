@@ -19,6 +19,7 @@ func TestKeyFetch(t *testing.T) {
 	GetGoogleJWKSKey()
 }
 
+<<<<<<< HEAD
 // this is only to confirm that we can verify a google token, but requires a fresh token
 // func TestParseAndVerifyGoogle(t *testing.T) {
 // 	filename := "google.jwt"
@@ -46,6 +47,26 @@ func TestParseAndVerify(t *testing.T) {
 	key := "testkey123456"
 	uuid, _ := uuid.Parse("50c06e4d-b594-4489-9d4b-a513f63c90bd")
 	newJwt := WriteJWT("vivienne@kthais.com", []string{"user", "admin", "queen"}, uuid, key, 15)
+	valid, _ := ParseAndVerify(newJwt, key)
+=======
+func TestParseAndVerifyGoogle(t *testing.T) {
+	filename := "google.jwt"
+	f, _ := os.Open(filename)
+	reader := bufio.NewReader(f)
+	test_jwt, isPrefix, _ := reader.ReadLine()
+	if isPrefix {
+		log.Println("Long JWT")
+	}
+	valid, token := ParseAndVerifyGoogle(string(test_jwt))
+>>>>>>> looks like jwt pipeline is working
+	if !valid {
+		t.Errorf("Could not validate JWT: \n")
+	}
+}
+
+func TestParseAndVerify(t *testing.T) {
+	key := "testkey123456"
+	newJwt := WriteJWT("vivienne@kthais.com", []string{"user", "admin", "queen"}, key, 15)
 	valid, _ := ParseAndVerify(newJwt, key)
 	if !valid {
 		t.Errorf("Could not validate JWT: \n")
