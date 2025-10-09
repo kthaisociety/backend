@@ -5,6 +5,8 @@ import (
 	"backend/internal/models"
 	"backend/internal/utils"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -42,6 +44,31 @@ func AuthRequiredJWT(cfg *config.Config) gin.HandlerFunc {
 		// no jwt, not authorized
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		c.Abort()
+	}
+}
+
+func RoleRequired(cfg *config.Config, role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		abort := func() {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+		}
+		for _, cookie := range c.Request.Cookies() {
+			if cookie.Name == "jwt" {
+				valid, token := utils.ParseAndVerify(cookie.Value, cfg.JwtSigningKey)
+				if !valid {
+					abort()
+				}
+				roles := strings.Split(utils.GetClaims(token)["roles"].(string), ",")
+				if slices.Contains(roles, role) {
+					c.Next()
+					return
+				} else {
+					abort()
+				}
+			}
+		}
+		abort()
 	}
 }
 

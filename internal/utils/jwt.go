@@ -114,10 +114,11 @@ func GetGoogleJWKSKey() *KeyList {
 	return &data
 }
 
-func WriteJWT(email string, roles []string, key string, validMinutes int) string {
+func WriteJWT(email string, roles []string, Id uint, key string, validMinutes int) string {
 	type UserClaims struct {
 		Email string `json:"email"`
 		Roles string `json:"roles"`
+		ID    uint   `json:"id"`
 		jwt.RegisteredClaims
 	}
 
@@ -125,6 +126,7 @@ func WriteJWT(email string, roles []string, key string, validMinutes int) string
 	claims := UserClaims{
 		email,
 		strings.Join(roles, ","),
+		Id,
 		jwt.RegisteredClaims{
 			// A usual scenario is to set the expiration time relative to the current time
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(validMinutes) * time.Hour)),

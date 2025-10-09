@@ -319,8 +319,13 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		dashboardURL = fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
 	}
 	// create JWT token with user data
-	// obviously this is insecure and should be replaced with an env variable
-	authJwt := utils.WriteJWT(email, []string{"user"}, h.jwtSigningKey, 15)
+	var roles []string
+	if user.IsAdmin {
+		roles = []string{"user", "admin"}
+	} else {
+		roles = []string{"user"}
+	}
+	authJwt := utils.WriteJWT(email, roles, user.ID, h.jwtSigningKey, 15)
 	c.SetCookie("jwt", authJwt, 3600, "/", "localhost:3000", false, false)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }

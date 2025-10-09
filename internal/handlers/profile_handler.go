@@ -32,7 +32,7 @@ func (h *ProfileHandler) Register(r *gin.RouterGroup) {
 
 		// Admin-only endpoints
 		admin := profile.Group("/admin")
-		admin.Use(middleware.AdminRequired(h.db))
+		admin.Use(middleware.RoleRequired(h.cfg, "admin"))
 		admin.GET("", h.ListAllProfiles)
 		admin.PUT("/:userId", h.UpdateProfile)
 		admin.DELETE("/:userId", h.DeleteProfile)
