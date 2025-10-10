@@ -35,7 +35,7 @@ func (h *RegistrationHandler) Register(r *gin.RouterGroup) {
 
 		// Admin-only endpoints
 		admin := registrations.Group("/admin")
-		admin.Use(middleware.AdminRequired(h.db))
+		admin.Use(middleware.RoleRequired(h.cfg, "admin"))
 		admin.PUT("/:id", h.Update)
 		admin.DELETE("/:id", h.Delete)
 		admin.PUT("/:id/status", h.UpdateStatus)

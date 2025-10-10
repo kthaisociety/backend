@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"backend/internal/mailchimp"
 	"backend/internal/models"
@@ -276,8 +277,12 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new user
 		user = models.User{
-			Email:    email,
-			Provider: "google",
+			Email:     email,
+			Provider:  "google",
+			Roles:     []string{"user"},
+			UserId:    uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 
 		if err := h.db.Create(&user).Error; err != nil {
@@ -295,7 +300,17 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 
 	// Check if profile exists
 	var profile models.Profile
-	profileExists := h.db.Where("user_id = ?", user.ID).First(&profile).Error == nil
+	profileExists := h.db.Where("user_id = ?", user.UserId).First(&profile).Error == nil
+	if !profileExists {
+		profile.UserID = user.UserId
+		profile.Email = user.Email
+		profile.FirstName = firstName
+		profile.LastName = lastName
+		profile.Registered = false
+		if err := h.db.Create(&profile).Error; err != nil {
+			log.Printf("Failed to create profile for user: %v\n", profile)
+		}
+	}
 
 	// Set session for the user
 	session = sessions.Default(c)
@@ -311,7 +326,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 
 	// Redirect based on whether profile exists
 	var dashboardURL string
-	if profileExists {
+	if profileExists && profile.Registered {
 		// Profile exists, redirect to dashboard
 		dashboardURL = fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
 	} else {
@@ -319,13 +334,13 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		dashboardURL = fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
 	}
 	// create JWT token with user data
-	var roles []string
-	if user.IsAdmin {
-		roles = []string{"user", "admin"}
-	} else {
-		roles = []string{"user"}
-	}
-	authJwt := utils.WriteJWT(email, roles, user.ID, h.jwtSigningKey, 15)
+	// var roles []string
+	// if user.IsAdmin {
+	// 	roles = []string{"user", "admin"}
+	// } else {
+	// 	roles = []string{"user"}
+	// }
+	authJwt := utils.WriteJWT(email, user.Roles, user.UserId, h.jwtSigningKey, 15)
 	c.SetCookie("jwt", authJwt, 3600, "/", "localhost:3000", false, false)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }

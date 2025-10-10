@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // this module will hanlde confirming google logins and issueing our own jwt, which will have user
@@ -80,10 +82,19 @@ func ParseAndVerify(jwtIn string, skey string) (bool, *jwt.Token) {
 	return token.Valid, token
 }
 
+func GetJWT(c *gin.Context) *jwt.Token {
+	for _, cookie := range c.Request.Cookies() {
+		if cookie.Name == "jwt" {
+			token, _ := ParseJWT(cookie.Value)
+			return token
+		}
+	}
+	return nil
+}
+
 func GetClaims(token *jwt.Token) jwt.MapClaims {
 	claims, _ := token.Claims.(jwt.MapClaims)
 	return claims
-
 }
 
 type JwksKey struct {
@@ -114,14 +125,14 @@ func GetGoogleJWKSKey() *KeyList {
 	return &data
 }
 
-func WriteJWT(email string, roles []string, Id uint, key string, validMinutes int) string {
-	type UserClaims struct {
-		Email string `json:"email"`
-		Roles string `json:"roles"`
-		ID    uint   `json:"id"`
-		jwt.RegisteredClaims
-	}
+type UserClaims struct {
+	Email  string    `json:"email"`
+	Roles  string    `json:"roles"`
+	UserID uuid.UUID `json:"user_id"`
+	jwt.RegisteredClaims
+}
 
+func WriteJWT(email string, roles []string, Id uuid.UUID, key string, validMinutes int) string {
 	// Create claims with multiple fields populated
 	claims := UserClaims{
 		email,
