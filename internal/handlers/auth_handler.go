@@ -79,14 +79,14 @@ func isOriginAllowed(origin, allowedOrigin string) bool {
 	return origin == allowedOrigin
 }
 
-func (h *AuthHandler) RefreshToken(c *gin.Context) error {
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	old_token := utils.GetJWT(c)
 	claims := utils.GetClaims(old_token)
 	userId, err := uuid.Parse(claims["user_id"].(string))
 	if err != nil {
 		log.Printf("Refresh failed\n")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse user id"})
-		return err
+		return
 	}
 	var user models.User
 	result := h.db.Where("user_id = ?", userId).First(&user)
@@ -95,7 +95,6 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) error {
 	}
 	newToken := utils.WriteJWT(user.Email, user.Roles, user.UserId, h.jwtSigningKey, 15)
 	c.SetCookie("jwt", newToken, 3600, "/", "localhost:3000", false, false)
-	return nil
 }
 
 func InitAuth(cfg *config.Config) error {
