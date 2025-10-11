@@ -48,6 +48,7 @@ func (h *AuthHandler) Register(r *gin.RouterGroup) {
 		}
 
 		// Keep only these essential routes
+		auth.GET("/status", h.Status)
 		auth.GET("/refresh_token", h.RefreshToken)
 		auth.GET("/logout", h.Logout)
 		auth.GET("/authenticated", h.CheckAuth)
@@ -79,6 +80,7 @@ func isOriginAllowed(origin, allowedOrigin string) bool {
 	return origin == allowedOrigin
 }
 
+// viv - usually a separate refresh token is used but I don't know why that is necessary
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	old_token := utils.GetJWT(c)
 	claims := utils.GetClaims(old_token)
@@ -128,6 +130,17 @@ func InitAuth(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func (h *AuthHandler) Status(c *gin.Context) {
+	token_str := utils.GetJWTString(c)
+	valid, _ := utils.ParseAndVerify(token_str, h.jwtSigningKey)
+	if !valid {
+		c.JSON(401, gin.H{"authenticate": false})
+	} else {
+		c.JSON(200, gin.H{"authenticate": true})
+	}
+
 }
 
 func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {

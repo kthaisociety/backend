@@ -82,6 +82,15 @@ func ParseAndVerify(jwtIn string, skey string) (bool, *jwt.Token) {
 	return token.Valid, token
 }
 
+func GetJWTString(c *gin.Context) string {
+	for _, cookie := range c.Request.Cookies() {
+		if cookie.Name == "jwt" {
+			return cookie.Value
+		}
+	}
+	return ""
+}
+
 func GetJWT(c *gin.Context) *jwt.Token {
 	for _, cookie := range c.Request.Cookies() {
 		if cookie.Name == "jwt" {
