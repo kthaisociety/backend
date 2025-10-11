@@ -51,7 +51,6 @@ func (h *AuthHandler) Register(r *gin.RouterGroup) {
 		auth.GET("/status", h.Status)
 		auth.GET("/refresh_token", h.RefreshToken)
 		auth.GET("/logout", h.Logout)
-		auth.GET("/authenticated", h.CheckAuth)
 	}
 }
 
@@ -402,40 +401,4 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	session.Clear()
 	session.Save()
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
-}
-
-func (h *AuthHandler) CheckAuth(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id")
-	authenticated := session.Get("authenticated")
-
-	isAuthenticated := authenticated != nil && authenticated.(bool)
-
-	// Prepare response
-	response := gin.H{
-		"authenticated": isAuthenticated,
-		"user_id":       userID,
-	}
-
-	// If authenticated, verify user exists in DB and get user details
-	if isAuthenticated && userID != nil {
-		var user models.User
-		result := h.db.First(&user, userID)
-
-		if result.Error == nil {
-			// User found, add details to response
-			response["email"] = user.Email
-			response["provider"] = user.Provider
-			response["created_at"] = user.CreatedAt
-			response["updated_at"] = user.UpdatedAt
-		} else {
-			// User not found or DB error
-			log.Printf("Error retrieving user %v: %v", userID, result.Error)
-			response["authenticated"] = false
-			session.Clear()
-			session.Save()
-		}
-	}
-
-	c.JSON(http.StatusOK, response)
 }
