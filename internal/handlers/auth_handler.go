@@ -7,9 +7,11 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"backend/internal/mailchimp"
 	"backend/internal/models"
+	"backend/internal/utils"
 
 	"backend/internal/config"
 	"backend/internal/middleware"
@@ -24,12 +26,13 @@ import (
 
 // Add this line to ensure AuthHandler implements Handler interface
 type AuthHandler struct {
-	db        *gorm.DB
-	mailchimp *mailchimp.MailchimpAPI
+	db            *gorm.DB
+	mailchimp     *mailchimp.MailchimpAPI
+	jwtSigningKey string
 }
 
-func NewAuthHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI) *AuthHandler {
-	return &AuthHandler{db: db, mailchimp: mailchimp}
+func NewAuthHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI, skey string) *AuthHandler {
+	return &AuthHandler{db: db, mailchimp: mailchimp, jwtSigningKey: skey}
 }
 
 // Update Register method to match the Handler interface
@@ -45,8 +48,9 @@ func (h *AuthHandler) Register(r *gin.RouterGroup) {
 		}
 
 		// Keep only these essential routes
+		auth.GET("/status", h.Status)
+		auth.GET("/refresh_token", h.RefreshToken)
 		auth.GET("/logout", h.Logout)
-		auth.GET("/authenticated", h.CheckAuth)
 	}
 }
 
@@ -73,6 +77,25 @@ func isOriginAllowed(origin, allowedOrigin string) bool {
 
 	// Exact match if no wildcard
 	return origin == allowedOrigin
+}
+
+// viv - usually a separate refresh token is used but I don't know why that is necessary
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	old_token := utils.GetJWT(c)
+	claims := utils.GetClaims(old_token)
+	userId, err := uuid.Parse(claims["user_id"].(string))
+	if err != nil {
+		log.Printf("Refresh failed\n")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse user id"})
+		return
+	}
+	var user models.User
+	result := h.db.Where("user_id = ?", userId).First(&user)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not retreive user info"})
+	}
+	newToken := utils.WriteJWT(user.Email, user.Roles, user.UserId, h.jwtSigningKey, 15)
+	c.SetCookie("jwt", newToken, 3600, "/", "localhost:3000", false, false)
 }
 
 func InitAuth(cfg *config.Config) error {
@@ -106,6 +129,17 @@ func InitAuth(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func (h *AuthHandler) Status(c *gin.Context) {
+	token_str := utils.GetJWTString(c)
+	valid, _ := utils.ParseAndVerify(token_str, h.jwtSigningKey)
+	if !valid {
+		c.JSON(401, gin.H{"authenticate": false})
+	} else {
+		c.JSON(200, gin.H{"authenticate": true})
+	}
+
 }
 
 func (h *AuthHandler) BeginGoogleAuth(c *gin.Context) {
@@ -226,29 +260,34 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		redirectWithError(c, fmt.Sprintf("Failed to authorize: %v", err))
 		return
 	}
-
-	gothUser, err := provider.FetchUser(gothSession)
-	if err != nil {
-		log.Printf("Failed to fetch user: %v", err)
-		redirectWithError(c, "Failed to fetch user data")
-		return
+	gSession := gothSession.(*google.Session)
+	// parse token here
+	valid, token := utils.ParseAndVerifyGoogle(gSession.IDToken)
+	if token == nil {
+		log.Printf("Error parsing google jwt: %v\n", gSession.IDToken)
 	}
-
-	log.Printf("Google User Data: %+v", gothUser)
-	log.Printf("Raw Data: %+v", gothUser.RawData)
-
+	if !valid {
+		log.Printf("Invalid Google Token\n")
+	}
+	token_data := utils.GetClaims(token)
+	// log.Printf("Google ID: %v\n", gSession.IDToken)
+	// log.Printf("Google Access: %v\n", gSession.AccessToken)
 	// Extract name from RawData
-	var firstName, lastName string
-	if given, ok := gothUser.RawData["given_name"].(string); ok {
+	var firstName, lastName, email, name string
+	if given, ok := token_data["given_name"].(string); ok {
 		firstName = given
 	}
-	if family, ok := gothUser.RawData["family_name"].(string); ok {
+	if family, ok := token_data["family_name"].(string); ok {
 		lastName = family
 	}
-
-	// If given_name/family_name not found, try to parse from Name
-	if firstName == "" || lastName == "" && gothUser.Name != "" {
-		names := strings.Split(gothUser.Name, " ")
+	if emejl, ok := token_data["email"].(string); ok {
+		email = emejl
+	}
+	if fullname, ok := token_data["name"].(string); ok {
+		name = fullname
+	}
+	if firstName == "" || lastName == "" && name != "" {
+		names := strings.Split(name, " ")
 		if len(names) >= 2 {
 			if firstName == "" {
 				firstName = names[0]
@@ -262,16 +301,19 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 			}
 		}
 	}
-
 	// Check if user exists
 	var user models.User
-	result := h.db.Where("email = ?", gothUser.Email).First(&user)
+	result := h.db.Where("email = ?", email).First(&user)
 
 	if result.Error == gorm.ErrRecordNotFound {
 		// Create new user
 		user = models.User{
-			Email:    gothUser.Email,
-			Provider: "google",
+			Email:     email,
+			Provider:  "google",
+			Roles:     []string{"user"},
+			UserId:    uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 
 		if err := h.db.Create(&user).Error; err != nil {
@@ -289,7 +331,17 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 
 	// Check if profile exists
 	var profile models.Profile
-	profileExists := h.db.Where("user_id = ?", user.ID).First(&profile).Error == nil
+	profileExists := h.db.Where("user_id = ?", user.UserId).First(&profile).Error == nil
+	if !profileExists {
+		profile.UserID = user.UserId
+		profile.Email = user.Email
+		profile.FirstName = firstName
+		profile.LastName = lastName
+		profile.Registered = false
+		if err := h.db.Create(&profile).Error; err != nil {
+			log.Printf("Failed to create profile for user: %v\n", profile)
+		}
+	}
 
 	// Set session for the user
 	session = sessions.Default(c)
@@ -305,14 +357,22 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 
 	// Redirect based on whether profile exists
 	var dashboardURL string
-	if profileExists {
+	if profileExists && profile.Registered {
 		// Profile exists, redirect to dashboard
 		dashboardURL = fmt.Sprintf("%s/dashboard?auth=success", frontendURL)
 	} else {
 		// Profile doesn't exist, redirect to complete registration
 		dashboardURL = fmt.Sprintf("%s/auth/complete-registration?fname=%s&lname=%s", frontendURL, firstName, lastName)
 	}
-
+	// create JWT token with user data
+	// var roles []string
+	// if user.IsAdmin {
+	// 	roles = []string{"user", "admin"}
+	// } else {
+	// 	roles = []string{"user"}
+	// }
+	authJwt := utils.WriteJWT(email, user.Roles, user.UserId, h.jwtSigningKey, 15)
+	c.SetCookie("jwt", authJwt, 3600, "/", "localhost:3000", false, false)
 	c.Redirect(http.StatusTemporaryRedirect, dashboardURL)
 }
 
@@ -341,40 +401,4 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	session.Clear()
 	session.Save()
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
-}
-
-func (h *AuthHandler) CheckAuth(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id")
-	authenticated := session.Get("authenticated")
-
-	isAuthenticated := authenticated != nil && authenticated.(bool)
-
-	// Prepare response
-	response := gin.H{
-		"authenticated": isAuthenticated,
-		"user_id":       userID,
-	}
-
-	// If authenticated, verify user exists in DB and get user details
-	if isAuthenticated && userID != nil {
-		var user models.User
-		result := h.db.First(&user, userID)
-
-		if result.Error == nil {
-			// User found, add details to response
-			response["email"] = user.Email
-			response["provider"] = user.Provider
-			response["created_at"] = user.CreatedAt
-			response["updated_at"] = user.UpdatedAt
-		} else {
-			// User not found or DB error
-			log.Printf("Error retrieving user %v: %v", userID, result.Error)
-			response["authenticated"] = false
-			session.Clear()
-			session.Save()
-		}
-	}
-
-	c.JSON(http.StatusOK, response)
 }

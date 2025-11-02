@@ -1,25 +1,59 @@
 package middleware
 
 import (
+	"backend/internal/config"
 	"backend/internal/models"
+	"backend/internal/utils"
 	"net/http"
+	"slices"
+	"strings"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func AuthRequired() gin.HandlerFunc {
+func AuthRequiredJWT(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		session := sessions.Default(c)
-		userID := session.Get("user_id")
-		if userID == nil {
+		for _, cookie := range c.Request.Cookies() {
+			if cookie.Name == "jwt" {
+				valid, _ := utils.ParseAndVerify(cookie.Value, cfg.JwtSigningKey)
+				if valid {
+					c.Next()
+					return
+				} else {
+					c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+					c.Abort()
+				}
+			}
+		}
+		// no jwt, not authorized
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.Abort()
+	}
+}
+
+func RoleRequired(cfg *config.Config, role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		abort := func() {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			c.Abort()
-			return
 		}
-		c.Set("user_id", userID)
-		c.Next()
+		for _, cookie := range c.Request.Cookies() {
+			if cookie.Name == "jwt" {
+				valid, token := utils.ParseAndVerify(cookie.Value, cfg.JwtSigningKey)
+				if !valid {
+					abort()
+				}
+				roles := strings.Split(utils.GetClaims(token)["roles"].(string), ",")
+				if slices.Contains(roles, role) {
+					c.Next()
+					return
+				} else {
+					abort()
+				}
+			}
+		}
+		abort()
 	}
 }
 

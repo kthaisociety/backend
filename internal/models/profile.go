@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -28,9 +29,10 @@ const (
 	StudyProgramTechnologyAndManagement         StudyProgram = "Technology and Management"
 )
 
+// viv - might need to update with createdAt/updatedAt to track activity and if registerd
 type Profile struct {
 	gorm.Model
-	UserID         uint         `gorm:"not null;unique" json:"user_id"`
+	UserID         uuid.UUID    `gorm:"not null;unique" json:"user_id"`
 	Email          string       `gorm:"uniqueIndex;not null" json:"email"`
 	FirstName      string       `gorm:"not null" json:"first_name"`
 	LastName       string       `gorm:"not null" json:"last_name"`
@@ -39,4 +41,5 @@ type Profile struct {
 	GraduationYear int          `gorm:"not null" json:"graduation_year,omitempty"`
 	GitHubLink     string       `json:"github_link,omitempty"`
 	LinkedInLink   string       `json:"linkedin_link,omitempty"`
+	Registered     bool         `json:"registered"`
 }

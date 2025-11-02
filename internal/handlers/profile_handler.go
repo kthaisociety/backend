@@ -1,36 +1,41 @@
 package handlers
 
 import (
+	"backend/internal/config"
 	"backend/internal/mailchimp"
 	"backend/internal/middleware"
 	"backend/internal/models"
+	"backend/internal/utils"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type ProfileHandler struct {
 	db        *gorm.DB
 	mailchimp *mailchimp.MailchimpAPI
+	cfg       *config.Config
 }
 
-func NewProfileHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI) *ProfileHandler {
-	return &ProfileHandler{db: db, mailchimp: mailchimp}
+func NewProfileHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI, cfg *config.Config) *ProfileHandler {
+	return &ProfileHandler{db: db, mailchimp: mailchimp, cfg: cfg}
 }
 
 func (h *ProfileHandler) Register(r *gin.RouterGroup) {
 	profile := r.Group("/profile")
 	{
 		// Auth required endpoints
-		profile.Use(middleware.AuthRequired())
+		profile.Use(middleware.AuthRequiredJWT(h.cfg))
 		profile.GET("/", h.GetMyProfile)
 		profile.PUT("/", h.UpdateMyProfile)
 		profile.POST("/", h.CreateMyProfile)
 
 		// Admin-only endpoints
 		admin := profile.Group("/admin")
-		admin.Use(middleware.AdminRequired(h.db))
+		admin.Use(middleware.RoleRequired(h.cfg, "admin"))
 		admin.GET("", h.ListAllProfiles)
 		admin.PUT("/:userId", h.UpdateProfile)
 		admin.DELETE("/:userId", h.DeleteProfile)
@@ -39,7 +44,13 @@ func (h *ProfileHandler) Register(r *gin.RouterGroup) {
 
 // GetMyProfile returns the current user's profile
 func (h *ProfileHandler) GetMyProfile(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	// get userId from jwt now
+	token := utils.GetJWT(c)
+	claims := utils.GetClaims(token)
+	userID, err := uuid.Parse(claims["user_id"].(string))
+	if err != nil {
+		log.Printf("Could not get userid")
+	}
 
 	var profile models.Profile
 	if err := h.db.Where("user_id = ?", userID).First(&profile).Error; err != nil {
@@ -67,7 +78,13 @@ func (h *ProfileHandler) GetMyProfile(c *gin.Context) {
 
 // UpdateMyProfile allows a user to update their own profile
 func (h *ProfileHandler) UpdateMyProfile(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	// get userId from jwt now
+	token := utils.GetJWT(c)
+	claims := utils.GetClaims(token)
+	userID, err := uuid.Parse(claims["user_id"].(string))
+	if err != nil {
+		log.Printf("Could not get userid")
+	}
 
 	// Check if profile exists
 	var existingProfile models.Profile
@@ -155,7 +172,13 @@ func (h *ProfileHandler) UpdateMyProfile(c *gin.Context) {
 
 // CreateMyProfile creates a profile for the authenticated user
 func (h *ProfileHandler) CreateMyProfile(c *gin.Context) {
-	userID := c.GetUint("user_id")
+	// get userId from jwt now
+	token := utils.GetJWT(c)
+	claims := utils.GetClaims(token)
+	userID, err := uuid.Parse(claims["user_id"].(string))
+	if err != nil {
+		log.Printf("Could not get userid")
+	}
 
 	// Check if profile already exists
 	var existingProfile models.Profile
