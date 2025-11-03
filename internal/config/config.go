@@ -22,6 +22,8 @@ type Config struct {
 	OAuth struct {
 		GoogleClientID     string
 		GoogleClientSecret string
+		LinkedInClientID     string
+		LinkedInClientSecret string
 	}
 	AllowedOrigins []string
 	BackendURL     string
@@ -77,7 +79,8 @@ func LoadConfig() (*Config, error) {
 	// OAuth config
 	cfg.OAuth.GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
 	cfg.OAuth.GoogleClientSecret = getEnv("GOOGLE_CLIENT_SECRET", "")
-
+	cfg.OAuth.LinkedInClientID = getEnv("LINKEDIN_CLIENT_ID", "")
+	cfg.OAuth.LinkedInClientSecret = getEnv("LINKEDIN_CLIENT_SECRET", "")
 	cfg.SessionKey = getEnv("SESSION_KEY", "")
 	cfg.DevelopmentMode = getEnv("DEVELOPMENT", "true") == "true"
 
@@ -93,6 +96,9 @@ func LoadConfig() (*Config, error) {
 		os.Exit(1)
 	}
 
+	if cfg.OAuth.LinkedInClientID == "" || cfg.OAuth.LinkedInClientSecret == "" {
+        log.Printf("Warning: LinkedIn OAuth credentials not configured. LinkedIn auth will be disabled.")
+    }
 	return cfg, nil
 }
 
