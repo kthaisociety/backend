@@ -35,4 +35,15 @@ func TestS3init(t *testing.T) {
 		t.Fatalf("Failed to get object data%s\n", err)
 	}
 	log.Printf("Object Data: %s\n", obj_data)
+	put_obj := []byte("My test Object Here")
+	testKey := "testObj123"
+	err = client.PutObject(testKey, put_obj)
+	if err != nil {
+		t.Fatalf("Error putting object: %s\n", err)
+	}
+	test_put, err := client.GetObject(testKey)
+	if err != nil {
+		t.Fatalf("Error getting object: %s\n", err)
+	}
+	log.Printf("Test Object Val: %s\n", test_put)
 }

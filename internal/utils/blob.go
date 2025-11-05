@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -74,4 +75,13 @@ func (r2 R2Client) GetObject(object_key string) ([]byte, error) {
 		return []byte{}, nil
 	}
 	return data, nil
+}
+
+func (r2 R2Client) PutObject(key string, obj []byte) error {
+	_, err := r2.R2_client.PutObject(context.Background(), &s3.PutObjectInput{
+		Bucket: aws.String(r2.BucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(obj),
+	})
+	return err
 }
