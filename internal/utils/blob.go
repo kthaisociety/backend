@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 
 	cfg "backend/internal/config"
@@ -14,8 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func InitS3SDK(server_cfg *cfg.Config) {
-	// var bucketName = server_cfg.R2_bucket_name
+type R2Client struct {
+	R2_client  *s3.Client
+	BucketName string
+}
+
+func InitS3SDK(server_cfg *cfg.Config) (R2Client, error) {
 	fmt.Println("Init S3")
 	var accessKeyId = server_cfg.R2_access_key_id
 	var accessKeySecret = server_cfg.R2_access_key
@@ -27,47 +32,46 @@ func InitS3SDK(server_cfg *cfg.Config) {
 		config.WithRegion("auto"),
 	)
 	if err != nil {
-		log.Fatal(err)
+		return R2Client{}, err
 	}
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(r2_endpoint)
 	})
-	// bucket is empty
-	// listObjectsOutput, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
-	// 	Bucket: &bucketName,
-	// })
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	return R2Client{
+		R2_client:  client,
+		BucketName: server_cfg.R2_bucket_name,
+	}, nil
+}
 
-	// for _, object := range listObjectsOutput.Contents {
-	// 	obj, _ := json.MarshalIndent(object, "", "\t")
-	// 	fmt.Println(string(obj))
-	// }
-
-	//  {
-	//    "ChecksumAlgorithm": null,
-	//    "ETag": "\"eb2b891dc67b81755d2b726d9110af16\"",
-	//    "Key": "ferriswasm.png",
-	//    "LastModified": "2022-05-18T17:20:21.67Z",
-	//    "Owner": null,
-	//    "Size": 87671,
-	//    "StorageClass": "STANDARD"
-	//  }
-
-	listBucketsOutput, err := client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, object := range listBucketsOutput.Buckets {
+func PrettyPrintS3Objects(ol *s3.ListObjectsV2Output) {
+	for _, object := range ol.Contents {
 		obj, _ := json.MarshalIndent(object, "", "\t")
 		fmt.Println(string(obj))
 	}
+}
 
-	// {
-	//     "CreationDate": "2022-05-18T17:19:59.645Z",
-	//     "Name": "sdk-example"
-	// }
+func (r2 R2Client) GetObjectList() (*s3.ListObjectsV2Output, error) {
+	objectList, err := r2.R2_client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
+		Bucket: &r2.BucketName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return objectList, nil
+}
+
+func (r2 R2Client) GetObject(object_key string) ([]byte, error) {
+	response, err := r2.R2_client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(r2.BucketName),
+		Key:    aws.String(object_key),
+	})
+	if err != nil {
+		return []byte{}, err
+	}
+	data, err := io.ReadAll(response.Body)
+	if err != nil {
+		return []byte{}, nil
+	}
+	return data, nil
 }
