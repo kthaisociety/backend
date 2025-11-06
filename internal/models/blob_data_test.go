@@ -5,6 +5,7 @@ import (
 	"backend/internal/utils"
 	"fmt"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,10 +14,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// this test requires infra that is not in the test env
 func TestBlob(t *testing.T) {
 	file := "../../.env"
-	if err := godotenv.Load(file); err != nil {
-		log.Printf("Could not load %s: %v", file, err)
+	loaded := false
+	if _, err := os.Stat(file); err == nil {
+		if err := godotenv.Load(file); err != nil {
+			t.Fatalf("Could not load env file: %s\n", err)
+		}
+		log.Println("Loaded .env file")
+		loaded = true
+	}
+	if !loaded {
+		return
 	}
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -34,7 +44,7 @@ func TestBlob(t *testing.T) {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	// Auto migrate the schema
-	err = db.AutoMigrate(
+	_ = db.AutoMigrate(
 		&BlobData{},
 	)
 	name := "test_file"

@@ -4,16 +4,26 @@ import (
 	"backend/internal/config"
 	"fmt"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/joho/godotenv"
 )
 
+// this test requires a cloudflare account that I don't want to share atm
 func TestS3init(t *testing.T) {
 	fmt.Println("Running Blob Test")
 	file := "../../.env"
-	if err := godotenv.Load(file); err != nil {
-		log.Printf("Could not load %s: %v", file, err)
+	loaded := false
+	if _, err := os.Stat(file); err == nil {
+		if err := godotenv.Load(file); err != nil {
+			t.Fatalf("Could not load env file: %s\n", err)
+		}
+		log.Println("Loaded .env file")
+		loaded = true
+	}
+	if !loaded {
+		return
 	}
 	cfg, err := config.LoadConfig()
 	if err != nil {
