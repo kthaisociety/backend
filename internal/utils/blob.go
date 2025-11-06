@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 
 	cfg "backend/internal/config"
 
@@ -22,11 +21,9 @@ type R2Client struct {
 }
 
 func InitS3SDK(server_cfg *cfg.Config) (R2Client, error) {
-	fmt.Println("Init S3")
 	var accessKeyId = server_cfg.R2_access_key_id
 	var accessKeySecret = server_cfg.R2_access_key
 	var r2_endpoint = server_cfg.R2_endpoint
-	log.Printf("Endpoint: %s\n", r2_endpoint)
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKeyId, accessKeySecret, "")),
