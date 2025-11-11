@@ -8,6 +8,8 @@ import (
 
 type EventType string
 
+// why not just use a string??
+// why are we limiting event types (and hardcoding them)?
 const (
 	EventTypeLecture    EventType = "lecture"
 	EventTypeWorkshop   EventType = "webinar"

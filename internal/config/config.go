@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -37,7 +36,12 @@ type Config struct {
 		User   string
 		ListID string
 	}
-	JwtSigningKey string
+	JwtSigningKey    string
+	R2_bucket_name   string
+	R2_access_key    string
+	R2_access_key_id string
+	R2_endpoint      string
+	R2_Account_Id    string // might not be needed
 }
 
 func LoadConfig() (*Config, error) {
@@ -82,10 +86,16 @@ func LoadConfig() (*Config, error) {
 	cfg.DevelopmentMode = getEnv("DEVELOPMENT", "true") == "true"
 
 	cfg.JwtSigningKey = getEnv("JWTSigningKey", "test1234566")
+	//Cloudflare R2
+	cfg.R2_bucket_name = getEnv("R2_Bucket", "")
+	cfg.R2_access_key = getEnv("R2_Secret_Access_Key", "off key scraper")
+	cfg.R2_access_key_id = getEnv("R2_Access_Key_Id", "")
+	cfg.R2_endpoint = getEnv("R2_Endpoint", "")
+	cfg.R2_Account_Id = getEnv("R2_Account_Id", "")
 
 	// Debug OAuth configuration
-	fmt.Printf("Google Client ID: %s\n", maskString(cfg.OAuth.GoogleClientID))
-	fmt.Printf("Google Client Secret: %s\n", maskString(cfg.OAuth.GoogleClientSecret))
+	// fmt.Printf("Google Client ID: %s\n", maskString(cfg.OAuth.GoogleClientID))
+	// fmt.Printf("Google Client Secret: %s\n", maskString(cfg.OAuth.GoogleClientSecret))
 
 	// Log OAuth configuration status
 	if cfg.OAuth.GoogleClientID == "" || cfg.OAuth.GoogleClientSecret == "" {
