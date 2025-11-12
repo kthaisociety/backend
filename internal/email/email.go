@@ -16,9 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 )
 
-// Used for tests at the moment
-//
-//	TODO: Remove?
 type mailer interface {
 	Send(ctx context.Context, to, subject, htmlBody, textBody string) error
 }
@@ -43,7 +40,6 @@ func InitEmailService(cfg *config.Config) error {
 	// Build AWS config load options
 	opts := []func(*awsconfig.LoadOptions) error{}
 
-	// TODO: needed? I think this option is set from env file
 	if cfg.SES.Region != "" {
 		opts = append(opts, awsconfig.WithRegion(cfg.SES.Region))
 	}
@@ -79,7 +75,6 @@ func newEmailData() EmailData {
 	}
 }
 
-// TODO: Old function comment
 // Sends an email using Amazon SES.
 //
 // Parameters:
@@ -132,6 +127,25 @@ func sendEmail(recipient, subject, body string) error {
 	return defaultMailer.Send(ctx, recipient, subject, body, "")
 }
 
+// Custom template functions for formatting
+var templateFuncs = template.FuncMap{
+	// formatDate formats a time.Time to a human-readable date string
+	// Example: "Monday, January 2, 2006"
+	"formatDate": func(t time.Time) string {
+		return t.Format("Monday, January 2, 2006")
+	},
+	// formatTime formats a time.Time to a human-readable time string
+	// Example: "3:04 PM"
+	"formatTime": func(t time.Time) string {
+		return t.Format("3:04 PM")
+	},
+	// formatDateTime formats a time.Time to a human-readable date and time string
+	// Example: "Monday, January 2, 2006 at 3:04 PM"
+	"formatDateTime": func(t time.Time) string {
+		return t.Format("Monday, January 2, 2006 at 3:04 PM")
+	},
+}
+
 // Sends a registration confirmation email
 //
 // Parameters:
@@ -142,7 +156,7 @@ func sendEmail(recipient, subject, body string) error {
 //   - error: nil if the email was sent successfully, or an error if it failed
 func SendRegistrationEmail(profile models.Profile, verificationURL string) error {
 	// Parse both base and registration templates
-	tmpl, err := template.ParseFiles(
+	tmpl, err := template.New("base").Funcs(templateFuncs).ParseFiles(
 		"templates/base.html",
 		"templates/profile/register.html",
 	)
@@ -179,7 +193,7 @@ func SendRegistrationEmail(profile models.Profile, verificationURL string) error
 //   - error: nil if the email was sent successfully, or an error if it failed
 func sendLoginEmail(profile models.Profile, loginURL string) error {
 	// Parse both base and password templates
-	tmpl, err := template.ParseFiles(
+	tmpl, err := template.New("base").Funcs(templateFuncs).ParseFiles(
 		"templates/base.html",
 		"templates/profile/login.html",
 	)
@@ -216,7 +230,7 @@ func sendLoginEmail(profile models.Profile, loginURL string) error {
 //   - error: nil if the email was sent successfully, or an error if it failed
 func sendEventRegistrationEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
-	tmpl, err := template.ParseFiles(
+	tmpl, err := template.New("base").Funcs(templateFuncs).ParseFiles(
 		"templates/base.html",
 		"templates/event/register.html",
 	)
@@ -255,7 +269,7 @@ func sendEventRegistrationEmail(profile models.Profile, event models.Event) erro
 //   - error: nil if the email was sent successfully, or an error if it failed
 func sendEventReminderEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
-	tmpl, err := template.ParseFiles(
+	tmpl, err := template.New("base").Funcs(templateFuncs).ParseFiles(
 		"templates/base.html",
 		"templates/event/reminder.html",
 	)
@@ -294,7 +308,7 @@ func sendEventReminderEmail(profile models.Profile, event models.Event) error {
 //   - error: nil if the email was sent successfully, or an error if it failed
 func sendEventCancelEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
-	tmpl, err := template.ParseFiles(
+	tmpl, err := template.New("base").Funcs(templateFuncs).ParseFiles(
 		"templates/base.html",
 		"templates/event/cancel.html",
 	)
@@ -337,7 +351,7 @@ func sendEventCancelEmail(profile models.Profile, event models.Event) error {
 //   - error: nil if the email was sent successfully, or an error if it failed
 func sendCustomEmail(profile models.Profile, subject string, customText string, customButtonText string, customButtonURL string, customImageURL string) error {
 	// Parse both base and password templates
-	tmpl, err := template.ParseFiles(
+	tmpl, err := template.New("base").Funcs(templateFuncs).ParseFiles(
 		"templates/base.html",
 		"templates/profile/custom.html",
 	)

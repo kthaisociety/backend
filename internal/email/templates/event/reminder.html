@@ -7,7 +7,7 @@
 
 {{define "email_message_pre"}}
 <p>Remember to join us for <strong>{{ .Event.Title }}</strong>!.</p>
-<p>The event on {{ .Event.StartDate }} from {{ .Event.StartDate }} to {{ .Event.EndDate }} at {{ .Event.Location }}!
+<p>The event is on {{ formatDate .Event.StartDate }} from {{ formatTime .Event.StartDate }} to {{ formatTime .Event.EndDate }} at {{ .Event.Location }}!
 </p>
 {{end}}
 
