@@ -143,8 +143,8 @@ func sendEmail(recipient, subject, body string) error {
 func SendRegistrationEmail(profile models.Profile, verificationURL string) error {
 	// Parse both base and registration templates
 	tmpl, err := template.ParseFiles(
-		"internal/email/templates/base.html",
-		"internal/email/templates/profile/register.html",
+		"templates/base.html",
+		"templates/profile/register.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -180,8 +180,8 @@ func SendRegistrationEmail(profile models.Profile, verificationURL string) error
 func sendLoginEmail(profile models.Profile, loginURL string) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"internal/email/templates/base.html",
-		"internal/email/templates/profile/login.html",
+		"templates/base.html",
+		"templates/profile/login.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -217,8 +217,8 @@ func sendLoginEmail(profile models.Profile, loginURL string) error {
 func sendEventRegistrationEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"internal/email/templates/base.html",
-		"internal/email/templates/event/register.html",
+		"templates/base.html",
+		"templates/event/register.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -256,8 +256,8 @@ func sendEventRegistrationEmail(profile models.Profile, event models.Event) erro
 func sendEventReminderEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"internal/email/templates/base.html",
-		"internal/email/templates/event/reminder.html",
+		"templates/base.html",
+		"templates/event/reminder.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -295,8 +295,8 @@ func sendEventReminderEmail(profile models.Profile, event models.Event) error {
 func sendEventCancelEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"internal/email/templates/base.html",
-		"internal/email/templates/event/cancel.html",
+		"templates/base.html",
+		"templates/event/cancel.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -338,8 +338,8 @@ func sendEventCancelEmail(profile models.Profile, event models.Event) error {
 func sendCustomEmail(profile models.Profile, subject string, customText string, customButtonText string, customButtonURL string, customImageURL string) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"internal/email/templates/base.html",
-		"internal/email/templates/profile/custom.html",
+		"templates/base.html",
+		"templates/profile/custom.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
