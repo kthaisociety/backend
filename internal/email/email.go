@@ -2,18 +2,65 @@ package email
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"html/template"
+	"time"
 
 	"backend/internal/config"
 	"backend/internal/models"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ses"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/ses/types"
 )
+
+// Used for tests at the moment
+//
+//	TODO: Remove?
+type mailer interface {
+	Send(ctx context.Context, to, subject, htmlBody, textBody string) error
+}
+
+type SESMailer struct {
+	svc     *ses.Client
+	sender  string
+	replyTo string
+	charset string
+}
+
+var defaultMailer mailer
+
+func InitEmailService(cfg *config.Config) error {
+	if cfg == nil {
+		return fmt.Errorf("no config set")
+	}
+	if cfg.SES.Sender == "" {
+		return fmt.Errorf("no SES sender set")
+	}
+
+	// Build AWS config load options
+	opts := []func(*awsconfig.LoadOptions) error{}
+
+	// TODO: needed? I think this option is set from env file
+	if cfg.SES.Region != "" {
+		opts = append(opts, awsconfig.WithRegion(cfg.SES.Region))
+	}
+
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.Background(), opts...)
+	if err != nil {
+		return fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	defaultMailer = &SESMailer{
+		svc:     ses.NewFromConfig(awsCfg),
+		sender:  cfg.SES.Sender,
+		replyTo: cfg.SES.ReplyTo,
+		charset: "UTF-8",
+	}
+	return nil
+}
 
 // Email data struct, contains all fields used in emails
 type EmailData struct {
@@ -32,118 +79,72 @@ func newEmailData() EmailData {
 	}
 }
 
-// Add at package level
-var emailConfig *config.Config
-
-// Add an init function to set up the config
-func InitEmailService(cfg *config.Config) {
-	emailConfig = cfg
-}
-
+// TODO: Old function comment
 // Sends an email using Amazon SES.
 //
 // Parameters:
-//   - recipient: The email adress of the recipient
+//
+//   - ctx: GO context
+//   - to: The email adress of the recipient
 //   - subject: The subject line of the email
-//   - body: The HTML email body
+//   - htmlBody: The HTML email body
+//   - textBody: Fallback for non-HTML email clients (Defaults to message telling user to use a proper client)
 //
 // Returns:
 //   - error: nil if the email was sent successfully, or an error if it failed
-func sendEmail(recipient string, subject string, body string) error {
-	if emailConfig == nil {
-		return fmt.Errorf("email service not initialized")
+func (m *SESMailer) Send(ctx context.Context, to, subject, htmlBody, textBody string) error {
+	if textBody == "" {
+		textBody = "Please use an HTML-capable email client to view this email."
 	}
-
-	// Create a new session using config values
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(emailConfig.SES.Region),
-		Credentials: credentials.NewStaticCredentials(
-			emailConfig.SES.AccessKeyID,
-			emailConfig.SES.SecretAccessKey,
-			"", // Token is only required for temporary security credentials retrieved via STS,
-			// otherwise an empty string can be passed for this parameter.
-		),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create AWS session: %w", err)
-	}
-
-	// Create an SES session.
-	svc := ses.New(sess)
-
-	// Assemble the email.
-	textBody := "Please use a HTML capable email client to view this email." // Fallback for non-HTML email clients
-	input := &ses.SendEmailInput{
-		Destination: &ses.Destination{
-			CcAddresses: []*string{},
-			ToAddresses: []*string{
-				aws.String(recipient),
-			},
+	_, err := m.svc.SendEmail(ctx, &ses.SendEmailInput{
+		Source: aws.String(m.sender),
+		Destination: &types.Destination{
+			ToAddresses: []string{to},
 		},
-		Message: &ses.Message{ // TODO: Use the body function parameter
-			Body: &ses.Body{
-				Html: &ses.Content{ // How should we handle the Html body?
-					Charset: aws.String("UTF-8"), // TODO: Replace hard-coded Charset (if needed)
-					Data:    aws.String(body),
+		ReplyToAddresses: []string{m.replyTo},
+		Message: &types.Message{
+			Subject: &types.Content{
+				Charset: aws.String(m.charset),
+				Data:    aws.String(subject),
+			},
+			Body: &types.Body{
+				Html: &types.Content{
+					Charset: aws.String(m.charset),
+					Data:    aws.String(htmlBody),
 				},
-				Text: &ses.Content{
-					Charset: aws.String("UTF-8"), // TODO: Replace hard-coded Charset
+				Text: &types.Content{
+					Charset: aws.String(m.charset),
 					Data:    aws.String(textBody),
 				},
 			},
-			Subject: &ses.Content{
-				Charset: aws.String("UTF-8"), // TODO: Replace hard-coded Charset
-				Data:    aws.String(subject),
-			},
 		},
-		Source: aws.String(emailConfig.SES.Sender),
-		ReplyToAddresses: []*string{
-			aws.String(emailConfig.SES.ReplyTo),
-		},
-		// Uncomment to use a configuration set
-		//ConfigurationSetName: aws.String(ConfigurationSet),
+	})
+	return err
+}
+
+// Internal helper used by all public senders
+func sendEmail(recipient, subject, body string) error {
+	if defaultMailer == nil {
+		return fmt.Errorf("email service not initialized")
 	}
-
-	// Attempt to send the email.
-	result, err := svc.SendEmail(input)
-
-	// Display error messages if they occur.
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case ses.ErrCodeMessageRejected:
-				return fmt.Errorf("message rejected: %s", aerr.Error())
-			case ses.ErrCodeMailFromDomainNotVerifiedException:
-				return fmt.Errorf("mail from domain not verified: %s", aerr.Error())
-			case ses.ErrCodeConfigurationSetDoesNotExistException:
-				return fmt.Errorf("configuration set does not exist: %s", aerr.Error())
-			default:
-				return fmt.Errorf("SES error: %s", aerr.Error())
-			}
-		} else {
-			return fmt.Errorf("failed to send email: %w", err)
-		}
-
-	}
-
-	fmt.Println("Email send to address: " + recipient)
-	fmt.Println(result)
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return defaultMailer.Send(ctx, recipient, subject, body, "")
 }
 
 // Sends a registration confirmation email
 //
 // Parameters:
 //   - profile: The profile struct for the recipient
-//   - verificationURL: The URL for the confirmation
+//   - verificationURL: The URL for registration confirmation
 //
 // Returns:
 //   - error: nil if the email was sent successfully, or an error if it failed
 func SendRegistrationEmail(profile models.Profile, verificationURL string) error {
 	// Parse both base and registration templates
 	tmpl, err := template.ParseFiles(
-		"templates/base.html",
-		"templates/profile/register.html",
+		"internal/email/templates/base.html",
+		"internal/email/templates/profile/register.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -179,8 +180,8 @@ func SendRegistrationEmail(profile models.Profile, verificationURL string) error
 func sendLoginEmail(profile models.Profile, loginURL string) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"templates/base.html",
-		"templates/profile/login.html",
+		"internal/email/templates/base.html",
+		"internal/email/templates/profile/login.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -216,8 +217,8 @@ func sendLoginEmail(profile models.Profile, loginURL string) error {
 func sendEventRegistrationEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"templates/base.html",
-		"templates/event/register.html",
+		"internal/email/templates/base.html",
+		"internal/email/templates/event/register.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -255,8 +256,8 @@ func sendEventRegistrationEmail(profile models.Profile, event models.Event) erro
 func sendEventReminderEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"templates/base.html",
-		"templates/event/reminder.html",
+		"internal/email/templates/base.html",
+		"internal/email/templates/event/reminder.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -294,8 +295,8 @@ func sendEventReminderEmail(profile models.Profile, event models.Event) error {
 func sendEventCancelEmail(profile models.Profile, event models.Event) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"templates/base.html",
-		"templates/event/cancel.html",
+		"internal/email/templates/base.html",
+		"internal/email/templates/event/cancel.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)
@@ -337,8 +338,8 @@ func sendEventCancelEmail(profile models.Profile, event models.Event) error {
 func sendCustomEmail(profile models.Profile, subject string, customText string, customButtonText string, customButtonURL string, customImageURL string) error {
 	// Parse both base and password templates
 	tmpl, err := template.ParseFiles(
-		"templates/base.html",
-		"templates/profile/custom.html",
+		"internal/email/templates/base.html",
+		"internal/email/templates/profile/custom.html",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to parse templates: %w", err)

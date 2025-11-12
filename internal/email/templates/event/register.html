@@ -6,8 +6,9 @@
 {{end}}
 
 {{define "email_message_pre"}}
-<p>Thank you for registering to <strong>{{ .Event.Name }}</strong>!.</p>
-<p>The event is on {{ .Event.Date }} from {{ .Event.StartsAt }} to {{ .Event.EndsAt }} at {{ .Event.Location }}!.</p>
+<p>Thank you for registering to <strong>{{ .Event.Title }}</strong>!.</p>
+<p>The event is on {{ .Event.StartDate }} from {{ .Event.StartDate }} to {{ .Event.EndDate }} at {{ .Event.Location }}!
+</p>
 {{end}}
 
 {{define "email_button_url"}}{{.URL}}{{end}}
