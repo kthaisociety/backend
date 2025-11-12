@@ -32,7 +32,6 @@ type Config struct {
 	SessionKey      string
 	DevelopmentMode bool
 
-	// To be replaced by AMAZON SES
 	Mailchimp struct {
 		APIKey string
 		User   string
@@ -45,13 +44,10 @@ type Config struct {
 	R2_endpoint      string
 	R2_Account_Id    string // might not be needed
 
-	// AMAZON SES
 	SES struct {
-		AccessKeyID     string
-		SecretAccessKey string
-		Region          string
-		Sender          string
-		ReplyTo         string
+		Region  string
+		Sender  string
+		ReplyTo string
 	}
 }
 
@@ -115,16 +111,9 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// Amazon SES config
-	cfg.SES.AccessKeyID = getEnv("SES_ACCESS_KEY_ID", "")
-	cfg.SES.SecretAccessKey = getEnv("SES_SECRET_ACCESS_KEY", "")
-	cfg.SES.Region = getEnv("SES_REGION", "eu-north-1")
+	cfg.SES.Region = getEnv("SES_REGION", "")
 	cfg.SES.Sender = getEnv("SES_SENDER", "")
 	cfg.SES.ReplyTo = getEnv("SES_REPLY_TO", cfg.SES.Sender)
-
-	if cfg.SES.AccessKeyID == "" || cfg.SES.SecretAccessKey == "" {
-		log.Fatalf("Warning: Amazon SES credentials not configured. Email functionality will be disabled.")
-		os.Exit(1)
-	}
 
 	if cfg.SES.Sender == "" {
 		log.Println("Warning: Sender email is not set.")

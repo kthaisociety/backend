@@ -6,8 +6,9 @@
 {{end}}
 
 {{define "email_message_pre"}}
-<p>Remember to join us for <strong>{{ .Event.Name }}</strong>!.</p>
-<p>The event on {{ .Event.Date }} from {{ .Event.StartsAt }} to {{ .Event.EndsAt }} at {{ .Event.Location }}!.</p>
+<p>Remember to join us for <strong>{{ .Event.Title }}</strong>!.</p>
+<p>The event on {{ .Event.StartDate }} from {{ .Event.StartDate }} to {{ .Event.EndDate }} at {{ .Event.Location }}!
+</p>
 {{end}}
 
 {{define "email_button_url"}}{{.URL}}{{end}}
