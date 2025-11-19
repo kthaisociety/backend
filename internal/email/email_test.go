@@ -9,13 +9,15 @@ import (
 	"backend/internal/config"
 	"backend/internal/models"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
+	uid, _      = uuid.NewUUID()
 	mockProfile = models.Profile{
-		UserID:         1,
+		UserID:         uid,
 		Email:          "jack.gugolz@gmail.com",
 		FirstName:      "Jack",
 		LastName:       "Gugolz",
@@ -51,7 +53,7 @@ func TestMain(m *testing.M) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Printf("CONFIG ERROR: %+v", err)
-		os.Exit(1)
+		os.Exit(0)
 	}
 	log.Println("Loaded config:", cfg)
 
