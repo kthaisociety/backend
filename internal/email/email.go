@@ -130,19 +130,19 @@ func sendEmail(recipient, subject, body string) error {
 // Custom template functions for formatting
 var templateFuncs = template.FuncMap{
 	// formatDate formats a time.Time to a human-readable date string
-	// Example: "Monday, January 2, 2006"
+	// Example: "Monday, 2 January, 2006"
 	"formatDate": func(t time.Time) string {
-		return t.Format("Monday, January 2, 2006")
+		return t.Format("Monday, 2 January, 2006")
 	},
 	// formatTime formats a time.Time to a human-readable time string
-	// Example: "3:04 PM"
+	// Example: "15:04"
 	"formatTime": func(t time.Time) string {
-		return t.Format("3:04 PM")
+		return t.Format("15:04")
 	},
 	// formatDateTime formats a time.Time to a human-readable date and time string
-	// Example: "Monday, January 2, 2006 at 3:04 PM"
+	// Example: "Monday, 2 January, 2006 at 15:04 PM"
 	"formatDateTime": func(t time.Time) string {
-		return t.Format("Monday, January 2, 2006 at 3:04 PM")
+		return t.Format("Monday, 2 January, 2006 at 15:04 PM")
 	},
 }
 
