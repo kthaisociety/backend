@@ -31,7 +31,8 @@ type Config struct {
 	}
 	SessionKey      string
 	DevelopmentMode bool
-	Mailchimp       struct {
+
+	Mailchimp struct {
 		APIKey string
 		User   string
 		ListID string
@@ -42,6 +43,12 @@ type Config struct {
 	R2_access_key_id string
 	R2_endpoint      string
 	R2_Account_Id    string // might not be needed
+
+	SES struct {
+		Region  string
+		Sender  string
+		ReplyTo string
+	}
 }
 
 func LoadConfig() (*Config, error) {
@@ -101,6 +108,15 @@ func LoadConfig() (*Config, error) {
 	if cfg.OAuth.GoogleClientID == "" || cfg.OAuth.GoogleClientSecret == "" {
 		log.Fatalf("Warning: Google OAuth credentials not configured. OAuth functionality will be disabled.")
 		os.Exit(1)
+	}
+
+	// Amazon SES config
+	cfg.SES.Region = getEnv("SES_REGION", "")
+	cfg.SES.Sender = getEnv("SES_SENDER", "")
+	cfg.SES.ReplyTo = getEnv("SES_REPLY_TO", cfg.SES.Sender)
+
+	if cfg.SES.Sender == "" {
+		log.Println("Warning: Sender email is not set.")
 	}
 
 	return cfg, nil
