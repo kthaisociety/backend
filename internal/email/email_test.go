@@ -49,6 +49,10 @@ func init() {
 }
 
 func TestMain(m *testing.M) {
+	file := "../../.env"
+	if _, err := os.Stat(file); err != nil {
+		return
+	}
 	// Load config before running tests
 	cfg, err := config.LoadConfig()
 	if err != nil {
