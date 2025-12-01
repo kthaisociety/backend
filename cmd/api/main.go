@@ -114,9 +114,10 @@ func main() {
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.Profile{},
-		&models.Event{},
-		&models.Registration{},
-		&models.TeamMember{},
+		&models.Project{},
+		&models.Team{},
+		&models.TeamProjectPair{},
+		&models.TeamUserPair{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
@@ -183,10 +184,9 @@ func setupRoutes(r *gin.Engine, db *gorm.DB, mailchimpApi *mailchimp.MailchimpAP
 
 	// Register all handlers
 	allHandlers := []handlers.Handler{
-		handlers.NewEventHandler(db),
 		handlers.NewAuthHandler(db, mailchimpApi, cfg.JwtSigningKey),
-		handlers.NewRegistrationHandler(db, cfg),
 		handlers.NewProfileHandler(db, mailchimpApi, cfg),
+		handlers.NewProjectHandler(db, cfg),
 	}
 
 	for _, h := range allHandlers {
