@@ -82,7 +82,10 @@ func (h *JobListingHandler) UpdateJobListing(c *gin.Context) {
 	// we know we have it, parse for updated fields
 	var upjl models.JobListing
 	// var upjl map[string]interface{}
-	c.BindJSON(&upjl)
+	if err := c.BindJSON(&upjl); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err})
+		return
+	}
 	result = h.db.Model(&jl).Updates(upjl)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
@@ -99,28 +102,12 @@ func (h *JobListingHandler) GetJobListing(c *gin.Context) {
 		return
 	}
 
-	// jobID, err := uuid.Parse(id)
-	// if err != nil {
-	// c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id format"})
-	// return
-	// }
 	var jl models.JobListing
 	if err := h.db.First(&jl, "id = ?", id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
 		return
 	}
 	c.JSON(http.StatusOK, jl)
-
-	// result := h.db.First(&jl, "id = ?", jobID).Joins("left join companies on companies.id = job_listings.company_id")
-	// if result.Error != nil {
-	// 	if result.Error == gorm.ErrRecordNotFound {
-	// 		c.JSON(http.StatusNotFound, gin.H{"error": "Job Listing not found"})
-	// 	} else {
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
-	// 	}
-	// 	return
-	// }
-	// c.JSON(http.StatusOK, jl)
 }
 
 // Get with Query Params
@@ -141,7 +128,6 @@ func (h *JobListingHandler) DeleteJobListing(c *gin.Context) {
 		return
 	}
 	result := h.db.Unscoped().Where("id = ?", id).Delete(&models.JobListing{})
-	// result := h.db.Where("id = ?", jobID).Delete(&models.JobListing{})
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return
