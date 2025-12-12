@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"backend/internal/config"
-	"backend/internal/mailchimp"
 	"backend/internal/middleware"
 	"backend/internal/models"
 	"backend/internal/utils"
@@ -15,13 +14,12 @@ import (
 )
 
 type AdminHandler struct {
-	db        *gorm.DB
-	mailchimp *mailchimp.MailchimpAPI
-	cfg       *config.Config
+	db  *gorm.DB
+	cfg *config.Config
 }
 
-func NewAdminHandler(db *gorm.DB, mailchimp *mailchimp.MailchimpAPI, cfg *config.Config) *AdminHandler {
-	return &AdminHandler{db: db, mailchimp: mailchimp, cfg: cfg}
+func NewAdminHandler(db *gorm.DB, cfg *config.Config) *AdminHandler {
+	return &AdminHandler{db: db, cfg: cfg}
 }
 
 func (h *AdminHandler) Register(r *gin.RouterGroup) {
