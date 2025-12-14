@@ -5,15 +5,20 @@ import uuid
 def create_jwt():
     jwt_key = ""
     jf = open("key.txt", "r")
-    jwt_key = jf.read()
+    jwt_key = jf.read().strip()
     jf.close()
     claims = {
+        "iss": "KTHAIS",
         "email": "vivienne@kthais.com",
-        "roles": ["admin"],
+        "roles": "admin,user",
+        "id": str(uuid.uuid4()),
+        "exp": int(time.time()) + 600 
     }
+    print(f"Key: {jwt_key}")
     token = jwt.encode(claims, jwt_key, algorithm="HS256")
+    # with open("pytoken.txt", "w") as f:
+        # f.write(token)
     return token
-
 
 def upload_companies(file_path, api_url):
     token = create_jwt() 
