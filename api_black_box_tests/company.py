@@ -55,6 +55,7 @@ def get_companies(api_url, save=False):
                 success = False
         if success:
             print("All companies verified successfully.")
+            print(f"{c_names}")
         if save:
             with open("output_companies.json", "w") as out_file:
                 import json
@@ -81,10 +82,33 @@ def get_specific(api_url):
             company = resp2.json()
             print(f"Retrieved company: {company}")
 
+def getKTHAISLogo(api_url):
+    resp = requests.get(f"{api_url}/getAllCompanies")
+    data = resp.json()
+    for c in data:
+        if c["name"] == "KTHAIS":
+            cresp = requests.get(f"{api_url}/getCompany", params={"id": c["id"]})
+            cdata = cresp.json()
+            logo_id = cdata["logo"]
+            lresp = requests.get(f"{api_url}/logo", params={"id": logo_id})
+            if lresp.ok:
+                with open("dl_logo.png", "wb") as lfile:
+                    lfile.write(lresp.content)
+            else:
+                print(f"Failed to fetch logo: {lresp.text}")
+
+def delete_all(api_url):
+    resp = requests.get(f"{api_url}/getAllCompanies")
+    data = resp.json()
+    for c in data:
+        requests.delete(f"{api_url}/delete", params={"id": c["id"]})
+
 
 if __name__ == "__main__":
     api_url = "http://localhost:8080/api/v1/company"
     filepath = "./companies.csv"
     # upload_companies(filepath, api_url)
-    get_companies(api_url, save=True)
-    get_specific(api_url)
+    # get_companies(api_url, save=False)
+    # get_specific(api_url)
+    getKTHAISLogo(api_url)
+    # delete_all(api_url)

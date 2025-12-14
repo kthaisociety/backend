@@ -4,7 +4,6 @@ import (
 	"backend/internal/config"
 	"backend/internal/middleware"
 	"backend/internal/models"
-	"backend/internal/utils"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -139,34 +138,12 @@ func (h *JobListingHandler) DeleteJobListing(c *gin.Context) {
 	c.JSON(http.StatusOK, "ok")
 }
 
-// type JobListSingle struct {
-// }
-
 // make it easy
 func (h *JobListingHandler) SingleUpload(c *gin.Context) {
 	// Read JSON part into a generic map so we can accept flexible input (partial fields,
 	// company name or UUID, etc.)
 	// Read image (optional or required depending on endpoint contract)
-	file, err := c.FormFile("logo")
-	has_logo := true
-	if err != nil {
-		// logo missing — return error if it's required
-		c.JSON(400, gin.H{"error": "image required"})
-		has_logo = false
-		return
-	}
-	// read file here
-	fdata := make([]byte, file.Size)
-	f_reader, _ := file.Open()
-	nread, err := f_reader.Read(fdata)
-	if err != nil {
-		log.Printf("Could not Read logo file: %s\n", err)
-		has_logo = false
-	}
-	if nread != int(file.Size) {
-		log.Printf("Read wrong number of bytes Read: %v -- File: %v\n", nread, file.Size)
-		has_logo = false
-	}
+	file, _ := c.FormFile("logo")
 	jobFile, err := c.FormFile("job")
 	if err != nil {
 		c.JSON(400, gin.H{"error": "job json missing"})
@@ -217,47 +194,14 @@ func (h *JobListingHandler) SingleUpload(c *gin.Context) {
 
 	// company may exist in database
 	if v, exists := payload["company"]; exists {
-		// treat as company name; lookup in DB
 		cv := v.(string)
-		var comp models.Company
-		if err := h.db.Where("name = ?", cv).First(&comp).Error; err != nil {
-			if err != gorm.ErrRecordNotFound {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err})
-				return
-			}
-
-			c_id, _ := uuid.NewUUID()
-			var logo_id uuid.UUID
-			if has_logo {
-				// create logo blob here
-				r2, err := utils.InitS3SDK(h.cfg)
-				if err != nil {
-					log.Printf("Failed to init r2: %s\n", err)
-				}
-				logoBlob, err := models.NewBlobData(
-					file.Filename,
-					"na",
-					c_id,
-					fdata,
-					h.db,
-					r2,
-				)
-				logo_id = logoBlob.BlobId
-			}
-			// create new company here
-			comp = models.Company{
-				Id:          c_id,
-				Name:        cv,
-				Description: "",
-				Logo:        logo_id,
-			}
-			if err = h.db.Create(&comp).Error; err != nil {
-				log.Printf("Failed to create company: %s\n", err)
-			}
-
-		} else {
-			log.Printf("Found Company %v\n", comp)
+		comp, err := models.NewCompany(cv, "", file, h.db, h.cfg)
+		if err != nil {
+			log.Printf("Error creating company: %s\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+			return
 		}
+
 		jl.CompanyId = comp.Id
 		if err = h.db.Create(&jl).Error; err != nil {
 			log.Printf("Failed to create joblisting: %s\n", err)

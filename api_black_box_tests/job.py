@@ -128,7 +128,7 @@ def test_full_upload(api_url):
         "salary": "too much",
         "location": "sthlm",
         "jobType": "full-time fully remote",
-        "company": "Texas Instruments"
+        "company": "KTHAIS"
     }
     files = {
         "logo": ("aislogo.png", open("aislogo.png", "rb"), "image/png"),
