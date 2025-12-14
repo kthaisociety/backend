@@ -118,9 +118,32 @@ def delete_ids(api_url, ids):
     if success:
         print("All Deleted Successfully")
 
+def test_full_upload(api_url):
+    token = create_jwt()
+    cookies = {"jwt": token}
+    job = {
+        "id": str(uuid.uuid4()),
+        "title": "0.00001x engineer",
+        "description": "one step forward, 4 steps backwards",
+        "salary": "too much",
+        "location": "sthlm",
+        "jobType": "full-time fully remote",
+        "company": "Texas Instruments"
+    }
+    files = {
+        "logo": ("aislogo.png", open("aislogo.png", "rb"), "image/png"),
+        "job": ("job.json", json.dumps(job), "application/json"),
+    }
+    resp = requests.post(f"{api_url}/admin/full", cookies=cookies, files=files)
+    if resp.ok:
+        print(f"Job upload Response: {resp.json()}")
+    else:
+        print(f"Single Post Failed: {resp.text}")
+
 
 if __name__ == "__main__":
     api_url = "http://localhost:8080/api/v1/joblistings"
-    Upload_jobs("jobs.csv", api_url)
-    ids = get_jobs(api_url)
-    delete_ids(api_url, ids)
+    # Upload_jobs("jobs.csv", api_url)
+    # ids = get_jobs(api_url)
+    # delete_ids(api_url, ids)
+    test_full_upload(api_url)
