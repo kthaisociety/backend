@@ -29,7 +29,7 @@ def upload_companies(file_path, api_url):
                 "description": description,
                 "logo": str(logo_id)
             }
-            response = requests.post(f"{api_url}/addCompany", json=data, headers=headers)
+            response = requests.post(f"{api_url}/admin/addCompany", json=data, headers=headers)
             if response.ok:
                 print(f"Uploaded company: {name}")
             else:
@@ -98,17 +98,17 @@ def getKTHAISLogo(api_url):
                 print(f"Failed to fetch logo: {lresp.text}")
 
 def delete_all(api_url):
-    resp = requests.get(f"{api_url}/getAllCompanies")
+    resp = requests.get(f"{api_url}/getAllCompanies", cookies={"jwt": create_jwt()})
     data = resp.json()
     for c in data:
-        requests.delete(f"{api_url}/delete", params={"id": c["id"]})
+        requests.delete(f"{api_url}/admin/delete", params={"id": c["id"]})
 
 
 if __name__ == "__main__":
     api_url = "http://localhost:8080/api/v1/company"
     filepath = "./companies.csv"
-    # upload_companies(filepath, api_url)
+    upload_companies(filepath, api_url)
     # get_companies(api_url, save=False)
     # get_specific(api_url)
-    getKTHAISLogo(api_url)
-    # delete_all(api_url)
+    # getKTHAISLogo(api_url)
+    delete_all(api_url)
