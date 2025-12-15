@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"backend/internal/config"
+	"backend/internal/email"
 	"backend/internal/handlers"
 	"backend/internal/mailchimp"
 	"backend/internal/models"
@@ -118,6 +119,8 @@ func main() {
 		&models.Team{},
 		&models.TeamProjectPair{},
 		&models.TeamUserPair{},
+		&models.Event{},
+		&models.BlobData{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
@@ -160,6 +163,11 @@ func main() {
 	}
 
 	r.Use(sessions.Sessions("kthais_session", store))
+
+	// Initialize SES
+	if err := email.InitEmailService(cfg); err != nil {
+		log.Fatal("Failed to initialize SES:", err)
+	}
 
 	// Initialize mailchimp client
 	mailchimpApi, err := mailchimp.InitMailchimpApi(cfg)

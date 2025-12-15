@@ -1,0 +1,59 @@
+package utils
+
+import (
+	"backend/internal/config"
+	"fmt"
+	"log"
+	"os"
+	"testing"
+
+	"github.com/joho/godotenv"
+)
+
+// this test requires a cloudflare account that I don't want to share atm
+func TestS3init(t *testing.T) {
+	fmt.Println("Running Blob Test")
+	file := "../../.env"
+	loaded := false
+	if _, err := os.Stat(file); err == nil {
+		if err := godotenv.Load(file); err != nil {
+			t.Fatalf("Could not load env file: %s\n", err)
+		}
+		log.Println("Loaded .env file")
+		loaded = true
+	}
+	if !loaded {
+		return
+	}
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		t.Fatalf("Error Loading Config: %s\n", err)
+	}
+	log.Printf("R2_Endpoint: %s\n R2_Access_Key: %s\n R2_Access_Key_Id: %s\n", cfg.R2_endpoint, cfg.R2_access_key, cfg.R2_access_key_id)
+	fmt.Println("Init SDK")
+	client, err := InitS3SDK(cfg)
+	if err != nil {
+		t.Fatalf("Failed to init client: %s\n", err)
+	}
+	ol, err := client.GetObjectList()
+	if err != nil {
+		t.Fatalf("Failed to get objects from R2 Bucket: %s\n", err)
+	}
+	PrettyPrintS3Objects(ol)
+	obj_data, err := client.GetObject("gui.erl")
+	if err != nil {
+		t.Fatalf("Failed to get object data%s\n", err)
+	}
+	log.Printf("Object Data: %s\n", obj_data)
+	put_obj := []byte("My test Object Here")
+	testKey := "testObj123"
+	err = client.PutObject(testKey, put_obj)
+	if err != nil {
+		t.Fatalf("Error putting object: %s\n", err)
+	}
+	test_put, err := client.GetObject(testKey)
+	if err != nil {
+		t.Fatalf("Error getting object: %s\n", err)
+	}
+	log.Printf("Test Object Val: %s\n", test_put)
+}

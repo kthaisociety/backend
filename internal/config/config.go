@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -32,12 +31,24 @@ type Config struct {
 	}
 	SessionKey      string
 	DevelopmentMode bool
-	Mailchimp       struct {
+
+	Mailchimp struct {
 		APIKey string
 		User   string
 		ListID string
 	}
-	JwtSigningKey string
+	JwtSigningKey    string
+	R2_bucket_name   string
+	R2_access_key    string
+	R2_access_key_id string
+	R2_endpoint      string
+	R2_Account_Id    string // might not be needed
+
+	SES struct {
+		Region  string
+		Sender  string
+		ReplyTo string
+	}
 }
 
 func LoadConfig() (*Config, error) {
@@ -82,15 +93,30 @@ func LoadConfig() (*Config, error) {
 	cfg.DevelopmentMode = getEnv("DEVELOPMENT", "true") == "true"
 
 	cfg.JwtSigningKey = getEnv("JWTSigningKey", "test1234566")
+	//Cloudflare R2
+	cfg.R2_bucket_name = getEnv("R2_Bucket", "")
+	cfg.R2_access_key = getEnv("R2_Secret_Access_Key", "off key scraper")
+	cfg.R2_access_key_id = getEnv("R2_Access_Key_Id", "")
+	cfg.R2_endpoint = getEnv("R2_Endpoint", "")
+	cfg.R2_Account_Id = getEnv("R2_Account_Id", "")
 
 	// Debug OAuth configuration
-	fmt.Printf("Google Client ID: %s\n", maskString(cfg.OAuth.GoogleClientID))
-	fmt.Printf("Google Client Secret: %s\n", maskString(cfg.OAuth.GoogleClientSecret))
+	// fmt.Printf("Google Client ID: %s\n", maskString(cfg.OAuth.GoogleClientID))
+	// fmt.Printf("Google Client Secret: %s\n", maskString(cfg.OAuth.GoogleClientSecret))
 
 	// Log OAuth configuration status
 	if cfg.OAuth.GoogleClientID == "" || cfg.OAuth.GoogleClientSecret == "" {
 		log.Fatalf("Warning: Google OAuth credentials not configured. OAuth functionality will be disabled.")
 		os.Exit(1)
+	}
+
+	// Amazon SES config
+	cfg.SES.Region = getEnv("SES_REGION", "")
+	cfg.SES.Sender = getEnv("SES_SENDER", "")
+	cfg.SES.ReplyTo = getEnv("SES_REPLY_TO", cfg.SES.Sender)
+
+	if cfg.SES.Sender == "" {
+		log.Println("Warning: Sender email is not set.")
 	}
 
 	return cfg, nil
