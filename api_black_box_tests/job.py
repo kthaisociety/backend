@@ -128,7 +128,12 @@ def test_full_upload(api_url):
         "salary": "too much",
         "location": "sthlm",
         "jobType": "full-time fully remote",
-        "company": "KTHAIS"
+        "company": "KTHAIS",
+        "company_description": "we make ai and ai accessories",
+        "appurl": "http://kthais.com",
+        "contact": "john ai",
+        "startdate": time.time(),
+        "enddate": time.time(),
     }
     files = {
         "logo": ("aislogo.png", open("aislogo.png", "rb"), "image/png"),
@@ -144,6 +149,6 @@ def test_full_upload(api_url):
 if __name__ == "__main__":
     api_url = "http://localhost:8080/api/v1/joblistings"
     # Upload_jobs("jobs.csv", api_url)
-    # ids = get_jobs(api_url)
-    # delete_ids(api_url, ids)
+    ids = get_jobs(api_url)
+    delete_ids(api_url, ids)
     test_full_upload(api_url)

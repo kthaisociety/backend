@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -173,6 +174,7 @@ func (h *JobListingHandler) SingleUpload(c *gin.Context) {
 			return
 		}
 	}
+
 	if v, ok := payload["title"].(string); ok {
 		jl.Name = v
 	}
@@ -188,14 +190,31 @@ func (h *JobListingHandler) SingleUpload(c *gin.Context) {
 	if v, ok := payload["jobType"].(string); ok {
 		jl.JobType = v
 	}
-	// if v, ok := payload["company"].(string); ok {
-	// 	jl.CompanyId = v
-	// }
+	if v, ok := payload["appurl"].(string); ok {
+		jl.AppUrl = v
+	}
+	if v, ok := payload["startdate"].(float64); ok {
+		jl.StartDate = time.Unix(int64(v), 0)
+	} else {
+		log.Printf("Could not parse startdate %v\n", payload["startdate"])
+	}
+	if v, ok := payload["enddate"].(float64); ok {
+		jl.EndDate = time.Unix(int64(v), 0)
+	} else {
+		log.Printf("Could not parse enddate %v\n", payload["enddate"])
+	}
+	if v, ok := payload["contact"].(string); ok {
+		jl.ContactInfo = v
+	}
+	var cdesc string
+	if v, ok := payload["company_description"].(string); ok {
+		cdesc = v
+	}
 
 	// company may exist in database
 	if v, exists := payload["company"]; exists {
 		cv := v.(string)
-		comp, err := models.NewCompany(cv, "", file, h.db, h.cfg)
+		comp, err := models.NewCompany(cv, cdesc, file, h.db, h.cfg)
 		if err != nil {
 			log.Printf("Error creating company: %s\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err})

@@ -113,7 +113,7 @@ def delete_all(api_url):
 if __name__ == "__main__":
     api_url = "http://localhost:8080/api/v1/company"
     filepath = "./companies.csv"
-    upload_companies(filepath, api_url)
+    # upload_companies(filepath, api_url)
     # get_companies(api_url, save=False)
     # get_specific(api_url)
     # getKTHAISLogo(api_url)
