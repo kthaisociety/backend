@@ -16,7 +16,7 @@ type Company struct {
 	Id          uuid.UUID `gorm:"uniqueIndex" json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Logo        uuid.UUID `json:"logo"` // reference to a blob_data object
+	Logo        string    `json:"logo"` // URL to company logo
 }
 
 func NewCompany(cv string, description string, file *multipart.FileHeader, db *gorm.DB, cfg *config.Config) (*Company, error) {
@@ -66,8 +66,8 @@ func NewCompany(cv string, description string, file *multipart.FileHeader, db *g
 		comp = Company{
 			Id:          c_id,
 			Name:        cv,
-			Description: "",
-			Logo:        logo_id,
+			Description: description,
+			Logo:        logo_id.String(),
 		}
 		if err = db.Create(&comp).Error; err != nil {
 			log.Printf("Failed to create company: %s\n", err)

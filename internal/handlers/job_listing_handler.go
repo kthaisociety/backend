@@ -20,10 +20,15 @@ type JobListingHandler struct {
 }
 
 type SmallJobListing struct {
-	Id      uuid.UUID `json:"id"`
-	Name    string    `json:"title"`
-	Company string    `json:"company"`
-	Salary  string    `json:"salary"`
+	Id          uuid.UUID `json:"id"`
+	Name        string    `json:"title"`
+	Company     string    `json:"company"`
+	CompanyLogo string    `json:"companyLogo"`
+	Salary      string    `json:"salary"`
+	JobType     string    `json:"jobType"`
+	Location    string    `json:"location"`
+	StartDate   time.Time `json:"startdate"`
+	EndDate     time.Time `json:"enddate"`
 }
 
 func NewJobListingHandler(db *gorm.DB, cfg *config.Config) *JobListingHandler {
@@ -32,6 +37,12 @@ func NewJobListingHandler(db *gorm.DB, cfg *config.Config) *JobListingHandler {
 
 func (h *JobListingHandler) Register(r *gin.RouterGroup) {
 	jl := r.Group("/joblistings")
+	
+	// Public routes - no auth required
+	jl.GET("/all", h.GetAllListings)
+	jl.GET("/job", h.GetJobListing)
+	
+	// Admin routes - require admin role
 	admin := jl.Group("/admin")
 	admin.Use(middleware.RoleRequired(h.cfg, "admin"))
 	{
@@ -39,9 +50,6 @@ func (h *JobListingHandler) Register(r *gin.RouterGroup) {
 		admin.PUT("/update", h.UpdateJobListing)
 		admin.DELETE("/delete", h.DeleteJobListing)
 		admin.POST("/full", h.SingleUpload)
-		// no auth required for these
-		jl.GET("/all", h.GetAllListings)
-		jl.GET("/job", h.GetJobListing)
 	}
 }
 
@@ -108,20 +116,65 @@ func (h *JobListingHandler) GetJobListing(c *gin.Context) {
 
 	var jl models.JobListing
 	if err := h.db.First(&jl, "id = ?", id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job listing not found"})
 		return
 	}
-	c.JSON(http.StatusOK, jl)
+	
+	// Fetch company details
+	var company models.Company
+	if err := h.db.First(&company, "id = ?", jl.CompanyId).Error; err != nil {
+		// If company not found, still return the job but without company details
+		c.JSON(http.StatusOK, jl)
+		return
+	}
+	
+	// Create a response that includes company details
+	response := map[string]interface{}{
+		"id":          jl.Id,
+		"title":       jl.Name,
+		"description": jl.Description,
+		"salary":      jl.Salary,
+		"location":    jl.Location,
+		"jobType":     jl.JobType,
+		"company":     company.Name,
+		"companyLogo": company.Logo,
+		"startdate":   jl.StartDate,
+		"enddate":     jl.EndDate,
+		"appurl":      jl.AppUrl,
+		"contact":     jl.ContactInfo,
+	}
+	
+	c.JSON(http.StatusOK, response)
 }
 
 // Get with Query Params
 func (h *JobListingHandler) GetAllListings(c *gin.Context) {
 	var shortListings []SmallJobListing
-	h.db.Table("job_listings").Select(
+	
+	// Build query
+	query := h.db.Table("job_listings").Select(
 		"job_listings.name",
 		"job_listings.salary",
 		"job_listings.id",
-		"companies.name as company").Joins("left join companies on companies.id = job_listings.company_id").Scan(&shortListings)
+		"job_listings.job_type",
+		"job_listings.location",
+		"job_listings.start_date",
+		"job_listings.end_date",
+		"companies.name as company",
+		"companies.logo as company_logo").Joins("left join companies on companies.id = job_listings.company_id")
+	
+	// Filter by job type if provided
+	if jobType := c.Query("jobType"); jobType != "" {
+		query = query.Where("job_listings.job_type = ?", jobType)
+	}
+	
+	query.Scan(&shortListings)
+	
+	// Ensure we return an empty array instead of null when there are no jobs
+	if shortListings == nil {
+		shortListings = []SmallJobListing{}
+	}
+	
 	c.JSON(http.StatusOK, shortListings)
 }
 
