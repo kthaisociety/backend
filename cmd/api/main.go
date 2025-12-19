@@ -204,4 +204,14 @@ func setupRoutes(r *gin.Engine, db *gorm.DB, mailchimpApi *mailchimp.MailchimpAP
 		h.Register(api)
 	}
 
+	// Add alias routes for frontend compatibility
+	jobHandler := handlers.NewJobListingHandler(db, cfg)
+	api.GET("/jobs", jobHandler.GetAllListings)
+	// Handle /jobs/:id by converting path param to query param
+	api.GET("/jobs/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		c.Request.URL.RawQuery = "id=" + id
+		jobHandler.GetJobListing(c)
+	})
+
 }
