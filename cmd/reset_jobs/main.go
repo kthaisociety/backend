@@ -77,7 +77,7 @@ func main() {
 
 	// Create job listings
 	now := time.Now()
-	
+
 	jobListings := []models.JobListing{
 		// Vantir
 		{
@@ -224,5 +224,3 @@ func getCompanyName(companies []models.Company, id uuid.UUID) string {
 	}
 	return "Unknown"
 }
-
-
