@@ -105,9 +105,9 @@ func main() {
 			Salary:      "25,000 SEK/month",
 			Location:    "Stockholm, Sweden",
 			JobType:     "Internship",
-			CompanyId:   companies[1].Id, // Klarna
-			StartDate:   now.AddDate(0, 1, 0),  // 1 month from now
-			EndDate:     now.AddDate(0, 6, 0),  // 6 months from now
+			CompanyId:   companies[1].Id,      // Klarna
+			StartDate:   now.AddDate(0, 1, 0), // 1 month from now
+			EndDate:     now.AddDate(0, 6, 0), // 6 months from now
 			AppUrl:      "https://www.klarna.com/careers",
 			ContactInfo: "recruitment@klarna.com",
 		},
@@ -219,7 +219,3 @@ func getCompanyName(companies []models.Company, id uuid.UUID) string {
 	}
 	return "Unknown"
 }
-
-
-
-
