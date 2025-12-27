@@ -105,3 +105,4 @@ Duration: Flexible part-time role (10–20 hours/week) that can easily be combin
 	log.Println("✅ Altaal job posting added successfully!")
 }
 
+
